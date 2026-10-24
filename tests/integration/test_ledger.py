@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -9,6 +10,7 @@ import pytest
 _PATH = Path(__file__).parents[2] / "custom_components" / "wattledger" / "ledger.py"
 _SPEC = importlib.util.spec_from_file_location("wattledger_ledger", _PATH)
 ledger = importlib.util.module_from_spec(_SPEC)
+sys.modules[_SPEC.name] = ledger  # dataclasses look the module up here
 _SPEC.loader.exec_module(ledger)
 
 INFO = {"inputs": ["mains"], "outputs": ["grid"], "defs_hash": 7, "boot_id": 3}
