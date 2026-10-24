@@ -58,7 +58,8 @@ I2C mode with stock SAMD09 firmware) plus WattLedger:
   other. HA combines them (section 9).
 - Wired Ethernet is preferred where the location allows, to remove Wi-Fi as a
   point of failure.
-- Each Vue gets an internal RTC (section 6.1).
+- An internal RTC is optional (section 6.1). Without one, untimed mode
+  (6.2) covers boots with no NTP server reachable.
 
 The component is hardware-agnostic: it consumes ESPHome power and voltage
 sensors (section 4), so other monitors (CircuitSetup ATM90E32) can use it
@@ -274,7 +275,7 @@ In order of preference:
 
 1. **SNTP** from the internal NTP servers (pfSense and others), then public
    servers.
-2. **RTC.** A SparkFun RV-1805 module (supercapacitor, about 35 days without
+2. **RTC (optional, needs soldering; `packages/vue3-rtc.yaml`).** A SparkFun RV-1805 module (supercapacitor, about 35 days without
    power) on the Vue 3's existing I2C bus (SDA GPIO5, SCL GPIO18, shared with
    the SAMD09 at 0x64; RV-1805 at 0x69). The `rv1805` ESPHome time
    component reads it at boot; SNTP's `on_time_sync` writes it. The RTC's

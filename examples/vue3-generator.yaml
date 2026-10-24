@@ -28,10 +28,6 @@ external_components:
       url: https://github.com/rosenrot00/emporiavue.git
       ref: main
     components: [emporiavue]
-  - source:
-      type: local
-      path: ../components
-    components: [rv1805]
 
 packages:
   emporiavue:
@@ -42,6 +38,7 @@ packages:
       - packages/vue3-1phase.yaml
       - packages/vue3-gpios.yaml
   wattledger: !include ../packages/vue3-wattledger.yaml
+  # No RTC on this unit; add ../packages/vue3-rtc.yaml if one is fitted.
 
 wifi:
   ssid: !secret wifi_ssid

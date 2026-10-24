@@ -18,5 +18,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install esphome
-      - run: cp examples/secrets.yaml.example examples/secrets.yaml
+      - name: Create secrets
+        run: |
+          sed "s|^api_encryption_key:.*|api_encryption_key: \"$(openssl rand -base64 32)\"|" \
+            examples/secrets.yaml.example > examples/secrets.yaml
       - run: esphome compile examples/${{ matrix.example }}.yaml

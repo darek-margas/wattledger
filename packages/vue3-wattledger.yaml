@@ -1,7 +1,7 @@
 # WattLedger base for an Emporia Vue 3.
 #
 # Include together with the emporiavue Vue 3 I2C base and topology packages.
-# Requires the `rv1805` external component from this repository.
+# Optionally add packages/vue3-rtc.yaml if an RV-1805 RTC is fitted.
 #
 # Substitutions (set them in the node YAML):
 #   timezone      IANA zone, e.g. Australia/Sydney; defines the local day
@@ -34,12 +34,8 @@ api:
   reboot_timeout: 0s
 
 time:
-  # On the Vue 3's I2C bus, shared with the SAMD09 (0x64); the RV-1805 is 0x69.
-  # Sets the system clock at boot, before the network is up, if its time is valid.
-  - platform: rv1805
-    id: rtc_time
-    timezone: ${timezone}
-
+  # Without an RTC, a boot with no NTP server reachable records untimed
+  # intervals until the first sync (design section 6.2).
   - platform: sntp
     id: sntp_time
     timezone: ${timezone}
@@ -47,6 +43,3 @@ time:
       - ${ntp_server_1}
       - ${ntp_server_2}
       - ${ntp_server_3}
-    on_time_sync:
-      then:
-        - lambda: id(rtc_time).write_time();

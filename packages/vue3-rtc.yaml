@@ -1,0 +1,20 @@
+# Optional RV-1805 RTC for an Emporia Vue 3, on top of vue3-wattledger.yaml.
+#
+# Only for units with a SparkFun RV-1805 board soldered inside (see README).
+# Requires the `rv1805` external component from this repository.
+#
+# Sets the system clock at boot, before the network is up, if the RTC's time
+# is valid, and stores the time after every SNTP sync.
+
+time:
+  # On the Vue 3's I2C bus, shared with the SAMD09 (0x64); the RV-1805 is 0x69.
+  - platform: rv1805
+    id: rtc_time
+    timezone: ${timezone}
+
+  # Merged into the SNTP entry from vue3-wattledger.yaml by id.
+  - id: sntp_time
+    platform: sntp
+    on_time_sync:
+      then:
+        - lambda: id(rtc_time).write_time();
