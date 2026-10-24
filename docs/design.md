@@ -319,7 +319,13 @@ If no valid time is available at boot, the device does not wait:
 ### 6.3 Clock corrections while timed
 
 A correction under 2 s is absorbed. A larger step closes the current interval
-(`CLOCK_STEP`), writes an event, and realigns. Intervals are identified by
+(`CLOCK_STEP`), writes an event, and realigns. Steps are detected by comparing
+the valid time with the uptime elapsed since the previous check, so slow
+drift corrections never accumulate into a false step.
+
+The history API resolves untimed records itself (`start_unix`); bucket
+realignment is shared code (`for_each_bucket`) used by the uploader and day
+sealing on the device, and mirrored in the integration. Intervals are identified by
 sequence number, so a backward step can't overwrite data; consumers bucket by
 start time and add up overlapping intervals.
 

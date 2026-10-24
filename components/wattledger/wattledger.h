@@ -12,6 +12,7 @@
 #include "journal.h"
 #include "partition_storage.h"
 #include "records.h"
+#include "timeline.h"
 
 namespace esphome::wattledger {
 
@@ -80,6 +81,12 @@ class WattLedgerComponent : public PollingComponent {
   uint32_t unix_now_();
   void open_tier_(Tier &tier, uint32_t unix_now);
   void close_tier_(Tier &tier);
+  /// Ends the open intervals now and starts new ones at `unix_now`, marking
+  /// the ended ones with `flags`.
+  void restart_tiers_(uint32_t unix_now, uint8_t flags);
+  /// Watches the valid time for the first valid time (anchor) and for jumps.
+  void track_time_(uint32_t unix_now);
+  void load_anchors_();
   /// Rounded mWh per channel (inputs then outputs, import and export), so
   /// interval energies telescope: rounding never accumulates.
   std::vector<int64_t> rounded_mwh_(const Totals &totals) const;
@@ -124,6 +131,11 @@ class WattLedgerComponent : public PollingComponent {
   std::vector<uint8_t> record_buffer_;
   uint16_t boot_id_{0};
   bool anchored_{false};
+  /// Anchors of all boots in the journal, for placing untimed records.
+  AnchorTable anchors_;
+  /// Last valid time seen, and the uptime then, to detect clock jumps.
+  uint32_t last_unix_{0};
+  uint64_t last_unix_uptime_ms_{0};
   Tier min1_{"min1", 60, nullptr};
   Tier min5_{"min5", 300, nullptr};
 

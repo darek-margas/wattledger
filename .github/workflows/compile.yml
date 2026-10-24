@@ -22,6 +22,11 @@ jobs:
             tests/host/test_journal.cpp components/wattledger/journal.cpp components/wattledger/records.cpp \
             -o test_journal
           ./test_journal
+      - name: Timeline
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
+            tests/host/test_timeline.cpp components/wattledger/timeline.cpp -o test_timeline
+          ./test_timeline
 
   compile:
     runs-on: ubuntu-latest

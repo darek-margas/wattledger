@@ -61,7 +61,8 @@ class IntervalLayout {
 
 enum EventType : uint8_t {
   EVENT_BOOT = 1,    ///< a: record format version
-  EVENT_ANCHOR = 2,  ///< monotonic and Unix time at the first valid time of a boot
+  EVENT_ANCHOR = 2,      ///< monotonic and Unix time at the first valid time of a boot
+  EVENT_CLOCK_STEP = 3,  ///< the clock jumped: unix_s is the new time, a the expected one
 };
 
 struct EventRecord {
