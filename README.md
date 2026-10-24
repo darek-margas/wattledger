@@ -45,18 +45,17 @@ external_components:
     components: [rv1805]
 
 time:
+  - platform: sntp
+    id: sntp_time
   - platform: rv1805
     id: rtc_time
-  - platform: sntp
-    on_time_sync:
-      then:
-        - lambda: id(rtc_time).write_time();
+    write_from: sntp_time
 ```
 
 - At boot, sets the system clock from the RTC, unless the RTC reports that it
   lost its backup power or was never set.
-- `id(rtc_time).write_time()` stores the system time; call it after every
-  SNTP sync.
+- `write_from` stores the time in the RTC after every sync of that time
+  source. Alternatively call `id(rtc_time).write_time()` yourself.
 - `id(rtc_time).read_time()` reads it again; this also happens every
   `update_interval` (default 15 min).
 - `trickle_charge` (default `true`) charges the supercapacitor.

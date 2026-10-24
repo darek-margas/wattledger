@@ -17,6 +17,7 @@ class RV1805Component : public time::RealTimeClock, public i2c::I2CDevice {
   void dump_config() override;
 
   void set_trickle_charge(bool trickle_charge) { this->trickle_charge_ = trickle_charge; }
+  void set_write_from(time::RealTimeClock *source) { this->write_from_ = source; }
 
   /// Set the system time from the RTC, if the RTC's time is valid.
   void read_time();
@@ -28,6 +29,7 @@ class RV1805Component : public time::RealTimeClock, public i2c::I2CDevice {
   bool write_protected_(uint8_t key, uint8_t reg, uint8_t value);
 
   bool trickle_charge_{true};
+  time::RealTimeClock *write_from_{nullptr};
   /// False when the counters can't be trusted until the next write_time(),
   /// for example after the clock was found stopped or in 12-hour mode.
   bool counters_trusted_{true};

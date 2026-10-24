@@ -6,6 +6,7 @@ from esphome.const import CONF_ID
 DEPENDENCIES = ["i2c"]
 
 CONF_TRICKLE_CHARGE = "trickle_charge"
+CONF_WRITE_FROM = "write_from"
 
 rv1805_ns = cg.esphome_ns.namespace("rv1805")
 RV1805Component = rv1805_ns.class_(
@@ -19,6 +20,9 @@ CONFIG_SCHEMA = (
             # Charges the backup supercapacitor on the SparkFun RV-1805 board.
             # Disable only if a primary (non-rechargeable) cell is fitted.
             cv.Optional(CONF_TRICKLE_CHARGE, default=True): cv.boolean,
+            # Write the RTC whenever this time source (e.g. SNTP) syncs, so an
+            # optional RTC package needn't modify the source's configuration.
+            cv.Optional(CONF_WRITE_FROM): cv.use_id(time.RealTimeClock),
         }
     ).extend(i2c.i2c_device_schema(0x69))
 )
@@ -30,3 +34,6 @@ async def to_code(config):
     await i2c.register_i2c_device(var, config)
     await time.register_time(var, config)
     cg.add(var.set_trickle_charge(config[CONF_TRICKLE_CHARGE]))
+    if CONF_WRITE_FROM in config:
+        source = await cg.get_variable(config[CONF_WRITE_FROM])
+        cg.add(var.set_write_from(source))

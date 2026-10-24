@@ -59,6 +59,9 @@ void RV1805Component::setup() {
     this->mark_failed();
     return;
   }
+  if (this->write_from_ != nullptr) {
+    this->write_from_->add_on_time_sync_callback([this]() { this->write_time(); });
+  }
   this->read_time();
 }
 

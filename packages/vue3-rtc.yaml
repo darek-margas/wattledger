@@ -11,10 +11,4 @@ time:
   - platform: rv1805
     id: rtc_time
     timezone: ${timezone}
-
-  # Merged into the SNTP entry from vue3-wattledger.yaml by id.
-  - id: sntp_time
-    platform: sntp
-    on_time_sync:
-      then:
-        - lambda: id(rtc_time).write_time();
+    write_from: sntp_time
