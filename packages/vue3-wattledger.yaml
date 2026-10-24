@@ -18,15 +18,9 @@ substitutions:
 esp32:
   # Confirm with `esptool flash_id` before the first install: one Vue 3 unit
   # reported 8 MB, but that isn't guaranteed for every hardware revision.
+  # The wattledger component adds its journal partition, sized from its
+  # configuration; ESPHome shrinks the two app partitions to make room.
   flash_size: 8MB
-  partitions:
-    # WattLedger journal (design section 5.4). ESPHome shrinks the two app
-    # partitions to make room: with ESP-IDF, the SAMD09 backup partition and
-    # this one, each app partition is 1.81 MB.
-    - name: wattledger
-      type: data
-      subtype: undefined
-      size: 0x3C0000
 
 api:
   # Keep measuring and uploading while Home Assistant is down. The default

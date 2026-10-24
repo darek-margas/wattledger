@@ -16,6 +16,12 @@ jobs:
             tests/host/test_accumulator.cpp components/wattledger/accumulator.cpp \
             -o test_accumulator
           ./test_accumulator
+      - name: Journal
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
+            tests/host/test_journal.cpp components/wattledger/journal.cpp components/wattledger/records.cpp \
+            -o test_journal
+          ./test_journal
 
   compile:
     runs-on: ubuntu-latest

@@ -2,13 +2,16 @@ import json
 import zlib
 
 import esphome.codegen as cg
-from esphome.components import sensor
+from esphome.components import sensor, time, web_server_base
+from esphome.components.esp32 import add_partition
+from esphome.components.web_server_base import CONF_WEB_SERVER_BASE_ID
 import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
     CONF_LAMBDA,
     CONF_POWER,
     CONF_SENSOR,
+    CONF_TIME_ID,
     DEVICE_CLASS_ENERGY,
     DEVICE_CLASS_POWER,
     STATE_CLASS_MEASUREMENT,
@@ -18,7 +21,8 @@ from esphome.const import (
 )
 
 CODEOWNERS = ["@darek-margas"]
-AUTO_LOAD = ["sensor"]
+DEPENDENCIES = ["network"]
+AUTO_LOAD = ["sensor", "web_server_base"]
 
 CONF_INPUTS = "inputs"
 CONF_LINES = "lines"
@@ -26,12 +30,22 @@ CONF_OUTPUTS = "outputs"
 CONF_IMPORT_ENERGY = "import_energy"
 CONF_EXPORT_ENERGY = "export_energy"
 CONF_STALE_TIMEOUT = "stale_timeout"
-CONF_INTERVAL = "interval"
+CONF_OUTPUT_SLOTS = "output_slots"
+CONF_MIN1_RETENTION = "min1_retention"
+CONF_MIN5_RETENTION = "min5_retention"
+CONF_WEB_HANDLER_ID = "web_handler_id"
+
+PARTITION_NAME = "wattledger"
+SECTOR_SIZE = 4096
+EVENT_RECORD_SIZE = 32
+EVENT_RECORDS = 1024
+SPARE_OUTPUT_SLOTS = 4
 
 wattledger_ns = cg.esphome_ns.namespace("wattledger")
 WattLedgerComponent = wattledger_ns.class_(
     "WattLedgerComponent", cg.PollingComponent
 )
+WebHandler = wattledger_ns.class_("WebHandler", cg.Component)
 
 
 def variable_name(value):
@@ -100,6 +114,46 @@ def _validate_unique_names(config):
     return config
 
 
+def _validate_output_slots(config):
+    outputs = len(config[CONF_OUTPUTS])
+    config.setdefault(CONF_OUTPUT_SLOTS, outputs + SPARE_OUTPUT_SLOTS)
+    if config[CONF_OUTPUT_SLOTS] < outputs:
+        raise cv.Invalid(
+            f"{CONF_OUTPUT_SLOTS} ({config[CONF_OUTPUT_SLOTS]}) must be at least the number of outputs ({outputs})"
+        )
+    return config
+
+
+def interval_record_size(config):
+    """Bytes per interval record; must match IntervalLayout::size()."""
+    return (
+        22
+        + 8 * len(config[CONF_INPUTS])
+        + 8 * config[CONF_OUTPUT_SLOTS]
+        + 2 * len(config[CONF_LINES])
+        + 16
+        + 4
+    )
+
+
+def ring_sectors(records, record_size):
+    """Must match Ring::sectors_for()."""
+    per_sector = SECTOR_SIZE // record_size
+    return -(-records // per_sector) + 1
+
+
+def partition_size(config, min1_records, min5_records):
+    """Must match Journal::required_size()."""
+    size = interval_record_size(config)
+    sectors = (
+        1
+        + ring_sectors(EVENT_RECORDS, EVENT_RECORD_SIZE)
+        + ring_sectors(min1_records, size)
+        + ring_sectors(min5_records, size)
+    )
+    return sectors * SECTOR_SIZE
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -113,13 +167,27 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_STALE_TIMEOUT, default="5s"
             ): cv.positive_time_period_milliseconds,
-            # Length of a recorded interval (the 1-minute tier).
+            # Interval records start on wall-clock boundaries once time is valid.
+            cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
+            # Record room for outputs. Changing the record layout (inputs,
+            # lines or slots) starts a new journal, so leave spare slots for
+            # outputs added later. Default: configured outputs + 4.
+            cv.Optional(CONF_OUTPUT_SLOTS): cv.int_range(min=1, max=64),
             cv.Optional(
-                CONF_INTERVAL, default="60s"
-            ): cv.positive_time_period_milliseconds,
+                CONF_MIN1_RETENTION, default="48h"
+            ): cv.positive_time_period_seconds,
+            cv.Optional(
+                CONF_MIN5_RETENTION, default="30d"
+            ): cv.positive_time_period_seconds,
+            cv.GenerateID(CONF_WEB_SERVER_BASE_ID): cv.use_id(
+                web_server_base.WebServerBase
+            ),
+            cv.GenerateID(CONF_WEB_HANDLER_ID): cv.declare_id(WebHandler),
         }
     ).extend(cv.polling_component_schema("10s")),
+    cv.only_on_esp32,
     _validate_unique_names,
+    _validate_output_slots,
 )
 
 
@@ -135,11 +203,32 @@ def definitions_hash(config):
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    min1_records = -(-int(config[CONF_MIN1_RETENTION].total_seconds) // 60)
+    min5_records = -(-int(config[CONF_MIN5_RETENTION].total_seconds) // 300)
+    add_partition(
+        PARTITION_NAME,
+        "data",
+        "undefined",
+        partition_size(config, min1_records, min5_records),
+    )
+
+    var = cg.new_Pvariable(
+        config[CONF_ID],
+        config[CONF_OUTPUT_SLOTS],
+        min1_records,
+        min5_records,
+        EVENT_RECORDS,
+    )
     await cg.register_component(var, config)
     cg.add(var.set_stale_timeout(config[CONF_STALE_TIMEOUT]))
-    cg.add(var.set_interval(config[CONF_INTERVAL]))
     cg.add(var.set_defs_hash(definitions_hash(config)))
+    if CONF_TIME_ID in config:
+        time_ = await cg.get_variable(config[CONF_TIME_ID])
+        cg.add(var.set_time(time_))
+
+    base = await cg.get_variable(config[CONF_WEB_SERVER_BASE_ID])
+    handler = cg.new_Pvariable(config[CONF_WEB_HANDLER_ID], base, var)
+    await cg.register_component(handler, {})
 
     input_names = [item[CONF_ID] for item in config[CONF_INPUTS]]
     for item in config[CONF_INPUTS]:

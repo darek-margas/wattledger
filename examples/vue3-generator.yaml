@@ -108,6 +108,7 @@ emporiavue:
         name: "Changeover frequency"
 
 wattledger:
+  time_id: sntp_time
   inputs:
     - id: gen1
       sensor: cir1
