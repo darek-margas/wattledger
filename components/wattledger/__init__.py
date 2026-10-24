@@ -357,6 +357,7 @@ async def to_code(config):
 
 
 async def _pvoutput_to_code(config, pvo, ledger):
+    cg.add_define("USE_WATTLEDGER_PVOUTPUT")
     esp32.request_http_client()
     esp32.request_tls()
     esp32.require_certificate_bundle()

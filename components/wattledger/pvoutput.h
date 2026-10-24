@@ -1,6 +1,7 @@
 #pragma once
 
-#ifdef USE_ESP32
+#include "esphome/core/defines.h"
+#ifdef USE_WATTLEDGER_PVOUTPUT
 
 #include <atomic>
 #include <mutex>
@@ -121,4 +122,4 @@ class ReplayButton : public button::Button, public Parented<PVOutputUploader> {
 
 }  // namespace esphome::wattledger
 
-#endif  // USE_ESP32
+#endif  // USE_WATTLEDGER_PVOUTPUT

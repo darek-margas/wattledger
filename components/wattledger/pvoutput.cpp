@@ -1,6 +1,6 @@
 #include "pvoutput.h"
 
-#ifdef USE_ESP32
+#ifdef USE_WATTLEDGER_PVOUTPUT
 
 #include <algorithm>
 #include <cinttypes>
@@ -363,4 +363,4 @@ void PVOutputUploader::dump_config() {
 
 }  // namespace esphome::wattledger
 
-#endif  // USE_ESP32
+#endif  // USE_WATTLEDGER_PVOUTPUT
