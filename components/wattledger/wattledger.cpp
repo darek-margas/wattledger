@@ -54,13 +54,13 @@ void WattLedgerComponent::setup() {
   if (this->import_price_sensor_ != nullptr) {
     this->import_price_sensor_->add_on_state_callback([this](float price) {
       this->last_import_price_ = price;
-      this->price_seen_unix_ = this->unix_now_();
+      this->import_price_seen_unix_ = this->unix_now_();
     });
   }
   if (this->export_price_sensor_ != nullptr) {
     this->export_price_sensor_->add_on_state_callback([this](float price) {
       this->last_export_price_ = price;
-      this->price_seen_unix_ = this->unix_now_();
+      this->export_price_seen_unix_ = this->unix_now_();
     });
   }
 
@@ -75,7 +75,8 @@ void WattLedgerComponent::setup() {
   } else if (!this->journal_.begin(&this->storage_,
                                    {static_cast<uint32_t>(this->layout_.size()), this->min1_records_,
                                     this->min5_records_, this->event_records_,
-                                    static_cast<uint32_t>(this->day_layout_.size()), this->day_records_})) {
+                                    static_cast<uint32_t>(this->day_layout_.size()), this->day_records_,
+                                    this->layout_identity_})) {
     ESP_LOGE(TAG, "Can't open the journal (partition too small or flash error); recording disabled");
   } else {
     this->journal_ok_ = true;
@@ -171,8 +172,11 @@ void WattLedgerComponent::update_prices_(uint32_t unix_now) {
   // A Home Assistant price is current only while Home Assistant is connected.
   fresh = fresh && api::global_api_server != nullptr && api::global_api_server->is_connected();
 #endif
-  if (fresh && this->max_price_age_s_ > 0 && unix_now != 0)
-    fresh = unix_now - this->price_seen_unix_ <= this->max_price_age_s_;
+  // Each price must be current on its own: an export price that keeps
+  // updating doesn't keep a stalled import price live.
+  fresh = fresh && price_current(this->import_price_seen_unix_, unix_now, this->max_price_age_s_);
+  if (this->export_price_sensor_ != nullptr)
+    fresh = fresh && price_current(this->export_price_seen_unix_, unix_now, this->max_price_age_s_);
   const float export_price = std::isfinite(this->last_export_price_) ? this->last_export_price_ : 0.0f;
   if (fresh) {
     p = Prices{this->last_import_price_, export_price, Prices::LIVE};

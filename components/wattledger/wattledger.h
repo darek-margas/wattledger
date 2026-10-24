@@ -37,6 +37,8 @@ class WattLedgerComponent : public PollingComponent {
                   sensor::Sensor *export_energy);
   void set_stale_timeout(uint32_t stale_timeout_ms) { this->stale_timeout_ms_ = stale_timeout_ms; }
   void set_defs_hash(uint32_t defs_hash) { this->defs_hash_ = defs_hash; }
+  /// Hash of the ordered input and line ids (see JournalLayout::identity).
+  void set_layout_identity(uint32_t identity) { this->layout_identity_ = identity; }
   void set_time(time::RealTimeClock *time) { this->time_ = time; }
   void set_seal_delay(uint32_t seal_delay_s) { this->seal_delay_s_ = seal_delay_s; }
 
@@ -160,6 +162,7 @@ class WattLedgerComponent : public PollingComponent {
   uint32_t min5_records_;
   uint32_t event_records_;
   uint32_t day_records_;
+  uint32_t layout_identity_{0};
 #ifdef USE_ESP32
   PartitionStorage storage_;
 #endif
@@ -187,7 +190,9 @@ class WattLedgerComponent : public PollingComponent {
   sensor::Sensor *export_price_sensor_{nullptr};
   float last_import_price_{NAN};
   float last_export_price_{NAN};
-  uint32_t price_seen_unix_{0};
+  /// When each price last updated: each must be current on its own.
+  uint32_t import_price_seen_unix_{0};
+  uint32_t export_price_seen_unix_{0};
   uint32_t max_price_age_s_{0};
   float supply_charge_{0};
   PriceSchedule schedule_;

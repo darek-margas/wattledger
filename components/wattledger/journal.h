@@ -82,6 +82,10 @@ struct JournalLayout {
   uint32_t event_records;
   uint32_t day_record_size;
   uint32_t day_records;
+  /// Hash of the ordered input and line ids. Records store values by
+  /// position, so reordering or renaming them must start a new journal
+  /// rather than relabel history.
+  uint32_t identity;
 };
 
 /// The journal partition: a superblock sector, then the event, 1-minute,

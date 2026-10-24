@@ -7,6 +7,17 @@
 
 namespace esphome::wattledger {
 
+/// Whether a price last updated at `seen_unix` is still current at `now_unix`.
+/// Without a maximum age a price stays current; with one, a price whose
+/// update time is unknown (it arrived before the clock was valid) isn't.
+inline bool price_current(uint32_t seen_unix, uint32_t now_unix, uint32_t max_age_s) {
+  if (max_age_s == 0)
+    return true;
+  if (seen_unix == 0 || now_unix == 0 || now_unix < seen_unix)
+    return false;
+  return now_unix - seen_unix <= max_age_s;
+}
+
 class PriceSchedule {
  public:
   /// A period from `from_min` to `to_min` (minutes since local midnight,
