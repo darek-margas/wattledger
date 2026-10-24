@@ -6,3 +6,4 @@ secrets.yaml
 __pycache__/
 *.pyc
 .venv/
+*.bak
