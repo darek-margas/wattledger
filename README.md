@@ -268,3 +268,11 @@ time:
 cp examples/secrets.yaml.example examples/secrets.yaml
 esphome compile examples/vue3-grid.yaml
 ```
+
+## License
+
+GPL-3.0-only, see [LICENSE](LICENSE). Firmware built with this component
+also links the GPL-3.0
+[rosenrot00/emporiavue](https://github.com/rosenrot00/emporiavue) driver.
+The RTC drivers use register details from the SparkFun RV-1805 and PiicoDev
+RV-3028 libraries (MIT).
