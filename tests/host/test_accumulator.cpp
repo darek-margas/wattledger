@@ -103,7 +103,20 @@ static void test_price_schedule() {
   expect_near(partial.lookup(120, imp, exp) ? 1 : 0, 0, "not covered");
 }
 
+static void test_price_freshness() {
+  const uint32_t now = 1792800000;
+  expect_near(price_current(now - 7200, now, 0), 1, "no maximum age");
+  expect_near(price_current(now - 3000, now, 3600), 1, "recent");
+  expect_near(price_current(now - 7200, now, 3600), 0, "too old");
+  expect_near(price_current(0, now, 3600), 0, "update time unknown");
+  // Separate timestamps: a stalled import price is stale even while the
+  // export price keeps updating.
+  const uint32_t import_seen = now - 7200, export_seen = now - 60;
+  expect_near(price_current(import_seen, now, 3600) && price_current(export_seen, now, 3600), 0, "one stalled");
+}
+
 int main() {
+  test_price_freshness();
   test_cost_per_sample();
   test_price_schedule();
   test_split_and_per_sample_clamp();

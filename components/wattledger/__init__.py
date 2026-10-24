@@ -394,6 +394,16 @@ def definitions_hash(config):
     return zlib.crc32(json.dumps(definitions).encode())
 
 
+def layout_identity(config):
+    """Ordered input and line ids. Records store values by position, so a
+    change here must start a new journal rather than relabel history."""
+    identity = {
+        "inputs": [item[CONF_ID] for item in config[CONF_INPUTS]],
+        "lines": [item[CONF_ID] for item in config[CONF_LINES]],
+    }
+    return zlib.crc32(json.dumps(identity).encode())
+
+
 async def to_code(config):
     min1_records = -(-int(config[CONF_MIN1_RETENTION].total_seconds) // 60)
     min5_records = -(-int(config[CONF_MIN5_RETENTION].total_seconds) // 300)
@@ -419,6 +429,7 @@ async def to_code(config):
     if cost := config.get(CONF_COST):
         await _cost_to_code(config, cost, var)
     cg.add(var.set_defs_hash(definitions_hash(config)))
+    cg.add(var.set_layout_identity(layout_identity(config)))
     if CONF_TIME_ID in config:
         time_ = await cg.get_variable(config[CONF_TIME_ID])
         cg.add(var.set_time(time_))

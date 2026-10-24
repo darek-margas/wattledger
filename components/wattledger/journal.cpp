@@ -160,7 +160,8 @@ bool Journal::begin(Storage *storage, const JournalLayout &l) {
   const uint32_t m5_sectors = Ring::sectors_for(l.min5_records, l.interval_record_size);
   const uint32_t day_sectors = Ring::sectors_for(l.day_records, l.day_record_size);
 
-  uint8_t layout[28];
+  uint8_t layout[32];
+  put_u32(layout + 28, l.identity);
   put_u32(layout, SUPERBLOCK_VERSION);
   put_u32(layout + 4, l.interval_record_size);
   put_u32(layout + 8, ev_sectors);

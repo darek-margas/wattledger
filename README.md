@@ -120,9 +120,10 @@ recorded against time since boot.
 | `output_slots` | outputs + 4 | Room for outputs in each record |
 
 The partition is sized from these and added automatically. Changing the
-record layout (inputs, lines, `output_slots`) or the retention starts a new,
-empty journal, so leave spare output slots for outputs you may add later.
-Changing a lambda keeps the journal.
+record layout (adding, removing, reordering or renaming inputs or lines;
+`output_slots`) or the retention starts a new, empty journal, so leave spare
+output slots for outputs you may add later. Changing a lambda keeps the
+journal.
 
 ## History API
 
