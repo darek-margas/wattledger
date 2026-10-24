@@ -1,7 +1,7 @@
 # WattLedger base for an Emporia Vue 3.
 #
 # Include together with the emporiavue Vue 3 I2C base and topology packages.
-# Optionally add packages/vue3-rtc.yaml if an RV-1805 RTC is fitted.
+# Optionally add packages/vue3-rtc.yaml if an RV-3028 RTC is fitted.
 #
 # Substitutions (set them in the node YAML):
 #   timezone      IANA zone, e.g. Australia/Sydney; defines the local day

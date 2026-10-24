@@ -28,7 +28,7 @@ external_components:
   - source:
       type: local
       path: ../components
-    components: [rv1805, wattledger]
+    components: [rv3028, wattledger]
 
 packages:
   emporiavue:
@@ -39,7 +39,7 @@ packages:
       - packages/vue3-1phase.yaml
       - packages/vue3-gpios.yaml
   wattledger: !include ../packages/vue3-wattledger.yaml
-  # This unit has the optional RV-1805 RTC fitted.
+  # This unit has the optional RV-3028 RTC fitted.
   wattledger_rtc: !include ../packages/vue3-rtc.yaml
 
 # Wired Ethernet is preferred, but the Vue 3's PHY type and pins aren't
