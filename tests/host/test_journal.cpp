@@ -129,25 +129,25 @@ static void test_other_salt_is_invalid() {
 static void test_journal_layout_change() {
   MemStorage st(64);
   Journal j;
-  EXPECT(j.begin(&st, 200, 100, 200, 64));
+  EXPECT(j.begin(&st, {200, 100, 200, 64, 120, 30}));
   EXPECT(j.started_new());
   std::vector<uint8_t> rec(200);
   j.min1().append(rec.data());
   j.min1().append(rec.data());
 
   Journal same;
-  EXPECT(same.begin(&st, 200, 100, 200, 64));
+  EXPECT(same.begin(&st, {200, 100, 200, 64, 120, 30}));
   EXPECT(!same.started_new());
   EXPECT(same.min1().next_seq() == 3);
 
   Journal changed;
-  EXPECT(changed.begin(&st, 208, 100, 200, 64));
+  EXPECT(changed.begin(&st, {208, 100, 200, 64, 120, 30}));
   EXPECT(changed.started_new());
   EXPECT(changed.min1().next_seq() == 1);
 
   MemStorage small(4);
   Journal too_big;
-  EXPECT(!too_big.begin(&small, 200, 100, 200, 64));
+  EXPECT(!too_big.begin(&small, {200, 100, 200, 64, 120, 30}));
 }
 
 static void test_interval_record_round_trip() {

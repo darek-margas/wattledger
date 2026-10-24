@@ -18,7 +18,7 @@ history after downtime.
 
 | Path | What |
 |---|---|
-| `components/wattledger` | Sampler (output lambdas on every sample, import/export energy), flash journal of 1- and 5-minute intervals, HTTP history API, direct PVOutput uploads (cost to come) |
+| `components/wattledger` | Sampler (output lambdas on every sample, import/export energy), flash journal of 1- and 5-minute intervals, HTTP history API, direct PVOutput uploads, cost and sealed days |
 | `components/rv3028` | ESPHome time platform for the Micro Crystal RV-3028 RTC (PiicoDev RTC board, supercapacitor backup) |
 | `components/rv1805` | Same for the RV-1805 (SparkFun Qwiic RTC board), as an alternative |
 | `packages/vue3-wattledger.yaml` | Vue 3 base: 8 MB flash, journal partition, SNTP time, no reboot while Home Assistant is down |
@@ -28,7 +28,7 @@ history after downtime.
 | `docs/design.md` | Design |
 | `docs/brand` | Icon and logo sources |
 
-Planned: cost and daily sealing on the device.
+Planned: monthly rollups and combined devices in the integration.
 
 ## Home Assistant integration
 
@@ -148,6 +148,54 @@ An event row is `[seq, type, boot_id, uptime_s, unix_s, a, b]`: type 1 boot,
 2 first valid time of a boot, 3 clock step (`unix_s` new time, `a` expected
 time). A jump of 2 s or more is a clock step: the open intervals end there and
 new ones start.
+
+## Cost and days
+
+```yaml
+sensor:
+  - platform: homeassistant          # prices in currency per kWh
+    id: import_price
+    entity_id: sensor.electricity_import_price
+  - platform: homeassistant
+    id: export_price
+    entity_id: sensor.electricity_export_price
+
+wattledger:
+  cost:
+    output: grid                     # import is costed, export credited
+    import_price: import_price
+    export_price: export_price
+    daily_supply_charge: 1.10
+    max_price_age: 2h                # optional
+    fallback_schedule:               # optional, while prices are unavailable
+      - {from: "00:00", to: "15:00", import: 0.28, export: 0.05}
+      - {from: "15:00", to: "21:00", import: 0.45, export: 0.05}
+      - {from: "21:00", to: "24:00", import: 0.28, export: 0.05}
+    cost_today: {name: "Electricity cost today", unit_of_measurement: AUD}
+    credit_today: {name: "Electricity credit today", unit_of_measurement: AUD}
+  day_retention: 730d
+  seal_delay: 15min
+```
+
+- Cost and credit are accumulated on every sample from the output's import
+  and export, so they're exact with dynamic prices and when the flow changes
+  direction within an interval. Interval records carry them, and the price
+  in effect.
+- A price is live while Home Assistant is connected (and, with
+  `max_price_age`, recent). Otherwise the fallback schedule is used if it
+  covers the time, else the last known price; such intervals are flagged
+  (4 stale, 8 schedule). With no price at all, nothing is costed.
+- **Days**: after each local midnight (plus `seal_delay`), the day is sealed
+  from its 5-minute records into a day record: energy per input and output,
+  average voltage, cost, credit, the supply charge, coverage, and the time
+  priced from a stale price or the schedule. Sealed days are kept for
+  `day_retention` and never change. After an outage, the missed days are
+  sealed from what the journal still holds.
+- History API: `rows?tier=days` returns
+  `[seq, flags, date, day_start, length_s, coverage_s, records, price_stale_s, price_schedule_s, defs_hash, [inputs], [outputs], [lines], cost, credit, supply_charge]`
+  (money in 1e-6 currency units; flags: 1 partial, 2 mixed output definitions).
+- The Home Assistant integration imports cost and credit as hourly statistics
+  (`wattledger:<device>_cost` / `_credit`, in Home Assistant's currency).
 
 ## PVOutput
 

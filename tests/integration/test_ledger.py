@@ -99,6 +99,16 @@ def test_rows_already_in_statistics_are_skipped():
     assert released[10800]["mains_import"] == pytest.approx(5.001)
 
 
+def test_cost_and_credit_channels():
+    info = dict(INFO, cost=True)
+    assert [c.key for c in ledger.channels(info)][-2:] == ["cost", "credit"]
+    r = row(1, 7200)
+    r[13], r[14] = 250000, 50000  # 0.25 and 0.05 in 1e-6 currency units
+    energies = ledger.row_energies(r, info)
+    assert energies["cost"] == pytest.approx(0.25) and energies["credit"] == pytest.approx(0.05)
+    assert "cost" not in ledger.row_energies(r, INFO)  # cost disabled on the device
+
+
 def test_state_round_trip():
     led = ledger.HourlyLedger()
     led.cursor = 5

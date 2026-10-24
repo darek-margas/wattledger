@@ -78,18 +78,6 @@ void PVOutputUploader::run_() {
   }
 }
 
-LocalTime PVOutputUploader::to_local_(uint32_t unix_time) {
-  // Local time follows the zone set by the ESPHome time component.
-  const time_t t = unix_time;
-  struct tm tm;
-  localtime_r(&t, &tm);
-  LocalTime lt;
-  lt.date = (tm.tm_year + 1900) * 10000 + (tm.tm_mon + 1) * 100 + tm.tm_mday;
-  lt.minute = tm.tm_hour * 60 + tm.tm_min;
-  lt.day_start = unix_time - (tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec);
-  return lt;
-}
-
 bool PVOutputUploader::place_(uint32_t seq, PlacedRecord &out, bool &wait) {
   wait = false;
   IntervalRecord rec;
@@ -126,7 +114,7 @@ void PVOutputUploader::prime_day_(Job &job) {
   }
   if (ref == 0)
     ref = ::time(nullptr);
-  DayTotals day{to_local_(ref).day_start, 0, 0};
+  DayTotals day{local_time(ref).day_start, 0, 0};
   for (uint32_t seq = job.cursor; seq > first;) {
     seq--;
     if (!this->place_(seq, p, wait))
@@ -153,7 +141,7 @@ void PVOutputUploader::start_replay_() {
   for (uint32_t seq = first; seq < this->live_.cursor && seq < next; seq++) {
     if (!this->place_(seq, p, wait))
       continue;
-    const uint32_t day_start = to_local_(p.start_unix).day_start;
+    const uint32_t day_start = local_time(p.start_unix).day_start;
     if (p.start_unix != day_start)
       continue;
     this->replay_ = Job{};
@@ -215,7 +203,7 @@ bool PVOutputUploader::run_batch_(Job &job, bool replay, uint32_t now) {
   DayTotals day = job.day;
   uint32_t sent_until = job.sent_until;
   size_t consumed = 0;
-  const std::vector<Status> statuses = build_statuses(placed, batch, to_local_, day, sent_until, consumed);
+  const std::vector<Status> statuses = build_statuses(placed, batch, local_time, day, sent_until, consumed);
   const uint32_t cursor = consumed < placed.size() ? placed[consumed].seq : seq;
 
   // PVOutput refuses statuses older than its history limit; keep a margin.
@@ -226,7 +214,7 @@ bool PVOutputUploader::run_batch_(Job &job, bool replay, uint32_t now) {
       continue;
     if (!data.empty())
       data += ';';
-    data += format_status(s, to_local_, this->consumption_ >= 0);
+    data += format_status(s, local_time, this->consumption_ >= 0);
   }
 
   auto commit = [&]() {

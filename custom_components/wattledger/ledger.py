@@ -20,6 +20,11 @@ ROW_START_UNIX = 5
 ROW_DURATION = 6
 ROW_INPUTS = 8
 ROW_OUTPUTS = 9
+ROW_COST = 13
+ROW_CREDIT = 14
+
+COST_KEY = "cost"
+CREDIT_KEY = "credit"
 
 
 @dataclass(frozen=True)
@@ -27,18 +32,21 @@ class Channel:
     """One energy series: an input or output, import or export."""
 
     key: str
-    kind: str  # "input" or "output"
+    kind: str  # "input", "output" or "money"
     name: str
     direction: str  # "import" or "export"
 
 
 def channels(info: dict[str, Any]) -> list[Channel]:
-    """The device's energy series, in row order."""
+    """The device's series: energy in row order, then cost and credit."""
     result = []
     for kind, names in (("input", info["inputs"]), ("output", info["outputs"])):
         for name in names:
             for direction in ("import", "export"):
                 result.append(Channel(f"{name}_{direction}", kind, name, direction))
+    if info.get("cost"):
+        result.append(Channel(COST_KEY, "money", "cost", "import"))
+        result.append(Channel(CREDIT_KEY, "money", "credit", "export"))
     return result
 
 
@@ -71,6 +79,10 @@ def row_energies(row: list, info: dict[str, Any]) -> dict[str, float]:
                 break
             energies[f"{name}_import"] = values[2 * i] / 1e6
             energies[f"{name}_export"] = values[2 * i + 1] / 1e6
+    if info.get("cost") and len(row) > ROW_CREDIT:
+        # 1e-6 currency units.
+        energies[COST_KEY] = row[ROW_COST] / 1e6
+        energies[CREDIT_KEY] = row[ROW_CREDIT] / 1e6
     return energies
 
 

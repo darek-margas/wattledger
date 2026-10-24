@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "accumulator.h"
 #include "journal.h"
 #include "partition_storage.h"
+#include "prices.h"
 #include "records.h"
 #include "timeline.h"
 
@@ -21,11 +23,13 @@ namespace esphome::wattledger {
 /// 1- and 5-minute intervals in the flash journal (section 5).
 class WattLedgerComponent : public PollingComponent {
  public:
-  WattLedgerComponent(uint32_t output_slots, uint32_t min1_records, uint32_t min5_records, uint32_t event_records)
+  WattLedgerComponent(uint32_t output_slots, uint32_t min1_records, uint32_t min5_records, uint32_t event_records,
+                      uint32_t day_records)
       : layout_(0, output_slots, 0),
         min1_records_(min1_records),
         min5_records_(min5_records),
-        event_records_(event_records) {}
+        event_records_(event_records),
+        day_records_(day_records) {}
 
   void add_input(const char *name, sensor::Sensor *sensor);
   void add_line(const char *name, sensor::Sensor *sensor);
@@ -34,6 +38,23 @@ class WattLedgerComponent : public PollingComponent {
   void set_stale_timeout(uint32_t stale_timeout_ms) { this->stale_timeout_ms_ = stale_timeout_ms; }
   void set_defs_hash(uint32_t defs_hash) { this->defs_hash_ = defs_hash; }
   void set_time(time::RealTimeClock *time) { this->time_ = time; }
+  void set_seal_delay(uint32_t seal_delay_s) { this->seal_delay_s_ = seal_delay_s; }
+
+  // Cost (design section 8.1).
+  void set_cost_output(int output) { this->accumulator_.set_cost_output(output); }
+  void set_price_sensors(sensor::Sensor *import_price, sensor::Sensor *export_price) {
+    this->import_price_sensor_ = import_price;
+    this->export_price_sensor_ = export_price;
+  }
+  void set_max_price_age(uint32_t max_price_age_s) { this->max_price_age_s_ = max_price_age_s; }
+  void set_supply_charge(float supply_charge) { this->supply_charge_ = supply_charge; }
+  void add_tariff_period(uint16_t from_min, uint16_t to_min, float import_per_kwh, float export_per_kwh) {
+    this->schedule_.add(from_min, to_min, import_per_kwh, export_per_kwh);
+  }
+  void set_cost_today_sensors(sensor::Sensor *cost, sensor::Sensor *credit) {
+    this->cost_today_sensor_ = cost;
+    this->credit_today_sensor_ = credit;
+  }
 
   void setup() override;
   void loop() override;
@@ -79,6 +100,9 @@ class WattLedgerComponent : public PollingComponent {
     uint64_t start_uptime_ms{0};
     Totals start_totals;
     std::vector<int64_t> start_mwh;
+    /// Rounded cost and credit at the start, in 1e-6 currency units.
+    int64_t start_cost{0};
+    int64_t start_credit{0};
   };
 
   /// Integrates the held values from the last sample time up to `now`.
@@ -99,6 +123,14 @@ class WattLedgerComponent : public PollingComponent {
   std::vector<int64_t> rounded_mwh_(const Totals &totals) const;
   void write_event_(uint8_t type, uint32_t unix_s, uint32_t a, uint32_t b);
   void append_interval_json_(const IntervalRecord &rec, std::string &out) const;
+  void append_day_json_(const DayRecord &rec, std::string &out) const;
+  /// Prices for the next integration steps, from the price sensors or the
+  /// fallback schedule (design 8.1).
+  void update_prices_(uint32_t unix_now);
+  /// Seals the next unsealed day once it has ended (plus the seal delay).
+  void seal_days_(uint32_t unix_now);
+  /// Cost and credit of today's records before this boot, for the "today" sensors.
+  void load_cost_today_(uint32_t unix_now);
 
   std::vector<Input> inputs_;
   std::vector<Input> lines_;
@@ -127,6 +159,7 @@ class WattLedgerComponent : public PollingComponent {
   uint32_t min1_records_;
   uint32_t min5_records_;
   uint32_t event_records_;
+  uint32_t day_records_;
 #ifdef USE_ESP32
   PartitionStorage storage_;
 #endif
@@ -148,6 +181,34 @@ class WattLedgerComponent : public PollingComponent {
 
   /// Totals at the previous update(), for average output power.
   Totals published_;
+
+  // Cost.
+  sensor::Sensor *import_price_sensor_{nullptr};
+  sensor::Sensor *export_price_sensor_{nullptr};
+  float last_import_price_{NAN};
+  float last_export_price_{NAN};
+  uint32_t price_seen_unix_{0};
+  uint32_t max_price_age_s_{0};
+  float supply_charge_{0};
+  PriceSchedule schedule_;
+  Prices prices_;
+  uint32_t last_price_update_ms_{0};
+  sensor::Sensor *cost_today_sensor_{nullptr};
+  sensor::Sensor *credit_today_sensor_{nullptr};
+  /// Today's local midnight, and cost/credit before this boot plus the
+  /// totals at midnight (or boot), for the "today" sensors.
+  uint32_t today_start_{0};
+  double cost_today_base_{0};
+  double credit_today_base_{0};
+  double cost_at_today_start_{0};
+  double credit_at_today_start_{0};
+
+  // Days.
+  DayLayout day_layout_{0, 0, 0};
+  uint32_t seal_delay_s_{900};
+  /// Start of the next day to seal; 0 until known.
+  uint32_t next_seal_day_{0};
+  uint32_t last_seal_check_ms_{0};
 };
 
 }  // namespace esphome::wattledger

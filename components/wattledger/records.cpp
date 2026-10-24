@@ -122,6 +122,76 @@ void IntervalLayout::decode(const uint8_t *in, IntervalRecord &rec) const {
   rec.credit = static_cast<int32_t>(r.u32());
 }
 
+// Day: ring header, then date u32, day_start u32, length_s u32, coverage_s
+// u32, records u16, price_stale_s u32, price_schedule_s u32, defs_hash u32.
+static const size_t DAY_HEADER_SIZE = RECORD_HEADER_SIZE + 30;
+
+size_t DayLayout::size() const {
+  return DAY_HEADER_SIZE + 8 * this->inputs_ + 8 * this->output_slots_ + 2 * this->lines_ + 12 + RECORD_CRC_SIZE;
+}
+
+void DayLayout::encode(const DayRecord &rec, uint8_t *out) const {
+  std::memset(out, 0, this->size());
+  Writer w(out + 2);
+  w.u8(RECORD_VERSION);
+  w.u8(rec.flags);
+  w.u32(0);
+  w.u32(rec.date);
+  w.u32(rec.day_start);
+  w.u32(rec.length_s);
+  w.u32(rec.coverage_s);
+  w.u16(rec.records);
+  w.u32(rec.price_stale_s);
+  w.u32(rec.price_schedule_s);
+  w.u32(rec.defs_hash);
+  for (size_t i = 0; i < this->inputs_; i++) {
+    w.u32(i < rec.input_import_mwh.size() ? rec.input_import_mwh[i] : 0);
+    w.u32(i < rec.input_export_mwh.size() ? rec.input_export_mwh[i] : 0);
+  }
+  for (size_t o = 0; o < this->output_slots_; o++) {
+    w.u32(o < rec.output_import_mwh.size() ? rec.output_import_mwh[o] : 0);
+    w.u32(o < rec.output_export_mwh.size() ? rec.output_export_mwh[o] : 0);
+  }
+  for (size_t l = 0; l < this->lines_; l++)
+    w.u16(l < rec.line_dv.size() ? rec.line_dv[l] : 0);
+  w.u32(static_cast<uint32_t>(rec.cost));
+  w.u32(static_cast<uint32_t>(rec.credit));
+  w.u32(static_cast<uint32_t>(rec.supply_charge));
+}
+
+void DayLayout::decode(const uint8_t *in, DayRecord &rec) const {
+  Reader r(in + 2);
+  r.u8();
+  rec.flags = r.u8();
+  rec.seq = r.u32();
+  rec.date = r.u32();
+  rec.day_start = r.u32();
+  rec.length_s = r.u32();
+  rec.coverage_s = r.u32();
+  rec.records = r.u16();
+  rec.price_stale_s = r.u32();
+  rec.price_schedule_s = r.u32();
+  rec.defs_hash = r.u32();
+  rec.input_import_mwh.resize(this->inputs_);
+  rec.input_export_mwh.resize(this->inputs_);
+  for (size_t i = 0; i < this->inputs_; i++) {
+    rec.input_import_mwh[i] = r.u32();
+    rec.input_export_mwh[i] = r.u32();
+  }
+  rec.output_import_mwh.resize(this->output_slots_);
+  rec.output_export_mwh.resize(this->output_slots_);
+  for (size_t o = 0; o < this->output_slots_; o++) {
+    rec.output_import_mwh[o] = r.u32();
+    rec.output_export_mwh[o] = r.u32();
+  }
+  rec.line_dv.resize(this->lines_);
+  for (size_t l = 0; l < this->lines_; l++)
+    rec.line_dv[l] = r.u16();
+  rec.cost = static_cast<int32_t>(r.u32());
+  rec.credit = static_cast<int32_t>(r.u32());
+  rec.supply_charge = static_cast<int32_t>(r.u32());
+}
+
 // Event: ring header with type in the flags byte, then boot_id u16, pad u16,
 // mono_s u32, unix_s u32, a u32, b u32, CRC.
 void encode_event(const EventRecord &ev, uint8_t *out) {

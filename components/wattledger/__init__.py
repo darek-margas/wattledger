@@ -20,10 +20,12 @@ from esphome.const import (
     CONF_SENSOR,
     CONF_TIME_ID,
     DEVICE_CLASS_ENERGY,
+    DEVICE_CLASS_MONETARY,
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_TIMESTAMP,
     ENTITY_CATEGORY_DIAGNOSTIC,
     STATE_CLASS_MEASUREMENT,
+    STATE_CLASS_TOTAL,
     STATE_CLASS_TOTAL_INCREASING,
     UNIT_KILOWATT_HOURS,
     UNIT_PERCENT,
@@ -58,6 +60,21 @@ CONF_LAST_UPLOAD = "last_upload"
 CONF_REPLAY_PROGRESS = "replay_progress"
 CONF_LAST_ERROR = "last_error"
 CONF_REPLAY = "replay"
+CONF_DAY_RETENTION = "day_retention"
+CONF_SEAL_DELAY = "seal_delay"
+CONF_COST = "cost"
+CONF_OUTPUT = "output"
+CONF_IMPORT_PRICE = "import_price"
+CONF_EXPORT_PRICE = "export_price"
+CONF_DAILY_SUPPLY_CHARGE = "daily_supply_charge"
+CONF_MAX_PRICE_AGE = "max_price_age"
+CONF_FALLBACK_SCHEDULE = "fallback_schedule"
+CONF_FROM = "from"
+CONF_TO = "to"
+CONF_IMPORT = "import"
+CONF_EXPORT = "export"
+CONF_COST_TODAY = "cost_today"
+CONF_CREDIT_TODAY = "credit_today"
 
 PARTITION_NAME = "wattledger"
 SECTOR_SIZE = 4096
@@ -190,6 +207,17 @@ def _validate_unique_names(config):
     return config
 
 
+def _validate_cost(config):
+    if (cost := config.get(CONF_COST)) is None:
+        return config
+    outputs = [item[CONF_ID] for item in config[CONF_OUTPUTS]]
+    if cost[CONF_OUTPUT] not in outputs:
+        raise cv.Invalid(
+            f"{CONF_COST}.{CONF_OUTPUT}: '{cost[CONF_OUTPUT]}' is not an output (outputs: {', '.join(outputs)})"
+        )
+    return config
+
+
 def _validate_pvoutput(config):
     if (pvo := config.get(CONF_PVOUTPUT)) is None:
         return config
@@ -229,13 +257,25 @@ def interval_record_size(config):
     )
 
 
+def day_record_size(config):
+    """Bytes per day record; must match DayLayout::size()."""
+    return (
+        38
+        + 8 * len(config[CONF_INPUTS])
+        + 8 * config[CONF_OUTPUT_SLOTS]
+        + 2 * len(config[CONF_LINES])
+        + 12
+        + 4
+    )
+
+
 def ring_sectors(records, record_size):
     """Must match Ring::sectors_for()."""
     per_sector = SECTOR_SIZE // record_size
     return -(-records // per_sector) + 1
 
 
-def partition_size(config, min1_records, min5_records):
+def partition_size(config, min1_records, min5_records, day_records):
     """Must match Journal::required_size()."""
     size = interval_record_size(config)
     sectors = (
@@ -243,8 +283,56 @@ def partition_size(config, min1_records, min5_records):
         + ring_sectors(EVENT_RECORDS, EVENT_RECORD_SIZE)
         + ring_sectors(min1_records, size)
         + ring_sectors(min5_records, size)
+        + ring_sectors(day_records, day_record_size(config))
     )
     return sectors * SECTOR_SIZE
+
+
+def time_of_day(value):
+    """'HH:MM' (up to 24:00) as minutes since midnight."""
+    value = cv.string_strict(value)
+    try:
+        hours, minutes = (int(part) for part in value.split(":"))
+    except ValueError as err:
+        raise cv.Invalid(f"'{value}' isn't a time of day (HH:MM)") from err
+    if not (0 <= minutes < 60 and 0 <= hours * 60 + minutes <= 1440):
+        raise cv.Invalid(f"'{value}' isn't a time of day (HH:MM)")
+    return hours * 60 + minutes
+
+
+TARIFF_PERIOD_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_FROM): time_of_day,
+        cv.Required(CONF_TO): time_of_day,
+        cv.Required(CONF_IMPORT): cv.float_,
+        cv.Optional(CONF_EXPORT, default=0.0): cv.float_,
+    }
+)
+
+MONEY_SENSOR_SCHEMA = sensor.sensor_schema(
+    accuracy_decimals=2,
+    device_class=DEVICE_CLASS_MONETARY,
+    state_class=STATE_CLASS_TOTAL,
+)
+
+COST_SCHEMA = cv.Schema(
+    {
+        # Output id whose import is costed and export credited (the grid).
+        cv.Required(CONF_OUTPUT): cv.string,
+        # Price sensors in currency per kWh, typically `homeassistant` sensors.
+        cv.Required(CONF_IMPORT_PRICE): cv.use_id(sensor.Sensor),
+        cv.Optional(CONF_EXPORT_PRICE): cv.use_id(sensor.Sensor),
+        cv.Optional(CONF_DAILY_SUPPLY_CHARGE, default=0.0): cv.float_,
+        # Prices older than this count as stale even with Home Assistant connected.
+        cv.Optional(CONF_MAX_PRICE_AGE): cv.positive_time_period_seconds,
+        # Used while the price sensors are unavailable or stale.
+        cv.Optional(CONF_FALLBACK_SCHEDULE, default=[]): cv.ensure_list(
+            TARIFF_PERIOD_SCHEMA
+        ),
+        cv.Optional(CONF_COST_TODAY): MONEY_SENSOR_SCHEMA,
+        cv.Optional(CONF_CREDIT_TODAY): MONEY_SENSOR_SCHEMA,
+    }
+)
 
 
 CONFIG_SCHEMA = cv.All(
@@ -272,6 +360,14 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_MIN5_RETENTION, default="30d"
             ): cv.positive_time_period_seconds,
+            cv.Optional(
+                CONF_DAY_RETENTION, default="730d"
+            ): cv.positive_time_period_seconds,
+            # A day is sealed this long after its local midnight.
+            cv.Optional(
+                CONF_SEAL_DELAY, default="15min"
+            ): cv.positive_time_period_seconds,
+            cv.Optional(CONF_COST): COST_SCHEMA,
             cv.GenerateID(CONF_WEB_SERVER_BASE_ID): cv.use_id(
                 web_server_base.WebServerBase
             ),
@@ -283,6 +379,7 @@ CONFIG_SCHEMA = cv.All(
     _validate_unique_names,
     _validate_output_slots,
     _validate_pvoutput,
+    _validate_cost,
 )
 
 
@@ -300,11 +397,12 @@ def definitions_hash(config):
 async def to_code(config):
     min1_records = -(-int(config[CONF_MIN1_RETENTION].total_seconds) // 60)
     min5_records = -(-int(config[CONF_MIN5_RETENTION].total_seconds) // 300)
+    day_records = -(-int(config[CONF_DAY_RETENTION].total_seconds) // 86400)
     add_partition(
         PARTITION_NAME,
         "data",
         "undefined",
-        partition_size(config, min1_records, min5_records),
+        partition_size(config, min1_records, min5_records, day_records),
     )
 
     var = cg.new_Pvariable(
@@ -313,9 +411,13 @@ async def to_code(config):
         min1_records,
         min5_records,
         EVENT_RECORDS,
+        day_records,
     )
     await cg.register_component(var, config)
     cg.add(var.set_stale_timeout(config[CONF_STALE_TIMEOUT]))
+    cg.add(var.set_seal_delay(int(config[CONF_SEAL_DELAY].total_seconds)))
+    if cost := config.get(CONF_COST):
+        await _cost_to_code(config, cost, var)
     cg.add(var.set_defs_hash(definitions_hash(config)))
     if CONF_TIME_ID in config:
         time_ = await cg.get_variable(config[CONF_TIME_ID])
@@ -389,3 +491,38 @@ async def _pvoutput_to_code(config, pvo, ledger):
     if CONF_REPLAY in pvo:
         btn = await button.new_button(pvo[CONF_REPLAY])
         await cg.register_parented(btn, var)
+
+
+async def _cost_to_code(config, cost, ledger):
+    outputs = [item[CONF_ID] for item in config[CONF_OUTPUTS]]
+    cg.add(ledger.set_cost_output(outputs.index(cost[CONF_OUTPUT])))
+    import_price = await cg.get_variable(cost[CONF_IMPORT_PRICE])
+    export_price = (
+        await cg.get_variable(cost[CONF_EXPORT_PRICE])
+        if CONF_EXPORT_PRICE in cost
+        else cg.nullptr
+    )
+    cg.add(ledger.set_price_sensors(import_price, export_price))
+    cg.add(ledger.set_supply_charge(cost[CONF_DAILY_SUPPLY_CHARGE]))
+    if CONF_MAX_PRICE_AGE in cost:
+        cg.add(ledger.set_max_price_age(int(cost[CONF_MAX_PRICE_AGE].total_seconds)))
+    for period in cost[CONF_FALLBACK_SCHEDULE]:
+        cg.add(
+            ledger.add_tariff_period(
+                period[CONF_FROM] % 1440,
+                period[CONF_TO] % 1440,
+                period[CONF_IMPORT],
+                period[CONF_EXPORT],
+            )
+        )
+    cost_today = (
+        await sensor.new_sensor(cost[CONF_COST_TODAY])
+        if CONF_COST_TODAY in cost
+        else cg.nullptr
+    )
+    credit_today = (
+        await sensor.new_sensor(cost[CONF_CREDIT_TODAY])
+        if CONF_CREDIT_TODAY in cost
+        else cg.nullptr
+    )
+    cg.add(ledger.set_cost_today_sensors(cost_today, credit_today))
