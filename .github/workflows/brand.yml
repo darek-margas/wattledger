@@ -1,0 +1,32 @@
+name: Brand images
+
+# Renders custom_components/wattledger/brand/*.png from docs/brand/*.svg.
+# Download the "brand" artifact and commit the PNGs into the brand folder.
+on:
+  push:
+    paths: ["docs/brand/**", ".github/workflows/brand.yml"]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y librsvg2-bin imagemagick fonts-inter optipng
+      - name: Render
+        run: |
+          mkdir -p out
+          rsvg-convert -w 256 -h 256 docs/brand/icon.svg -o out/icon.png
+          rsvg-convert -w 512 -h 512 docs/brand/icon.svg -o out/icon@2x.png
+          for name in logo dark_logo; do
+            # Render large, trim the empty canvas, then scale to the brand sizes.
+            rsvg-convert -h 1024 docs/brand/$name.svg -o /tmp/$name.png
+            convert /tmp/$name.png -trim +repage -resize x256 out/$name.png
+            convert /tmp/$name.png -trim +repage -resize x512 out/$name@2x.png
+          done
+          optipng -quiet -o5 out/*.png
+          identify out/*.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brand
+          path: out/

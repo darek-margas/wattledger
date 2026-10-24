@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a WattLedger device",
+        "description": "The ESPHome device running the wattledger component. Its energy history is imported into statistics for the Energy dashboard.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Host name or IP address of the device, e.g. vue-grid.local.",
+          "port": "Port of the device's web server; 80 unless you changed it."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Can't reach the WattLedger history API on this device. Check the address and that the firmware includes the wattledger component.",
+      "no_journal": "The device answers, but its journal isn't available. Check its log for partition errors."
+    },
+    "abort": {
+      "already_configured": "This device is already added; its address has been updated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "imported_until": {
+        "name": "Statistics imported until"
+      },
+      "backlog": {
+        "name": "Records waiting",
+        "unit_of_measurement": "records"
+      },
+      "unplaced": {
+        "name": "Unplaced intervals",
+        "unit_of_measurement": "intervals"
+      },
+      "boot_id": {
+        "name": "Boot number"
+      }
+    }
+  }
+}

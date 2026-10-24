@@ -4,7 +4,9 @@
 #include <cinttypes>
 #include <cmath>
 
+#include "esphome/core/application.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
 namespace esphome::wattledger {
@@ -303,6 +305,17 @@ void WattLedgerComponent::update() {
   this->published_ = totals;
 }
 
+static std::string json_escape(const std::string &s) {
+  std::string out;
+  for (char c : s) {
+    if (c == '"' || c == '\\')
+      out += '\\';
+    if (static_cast<unsigned char>(c) >= 0x20)
+      out += c;
+  }
+  return out;
+}
+
 static void append_names(std::string &out, const char *key, const std::vector<const char *> &names) {
   out += "\"";
   out += key;
@@ -327,7 +340,11 @@ std::string WattLedgerComponent::info_json() {
     lines.push_back(l.name);
 
   char buf[160];
-  std::string out = "{";
+  // Identifies the device to the integration's config flow.
+  char mac[MAC_ADDRESS_BUFFER_SIZE];
+  get_mac_address_into_buffer(mac);
+  std::string out = "{\"name\":\"" + json_escape(App.get_name().str()) + "\",\"friendly_name\":\"" +
+                    json_escape(App.get_friendly_name().str()) + "\",\"mac\":\"" + mac + "\",";
   snprintf(buf, sizeof(buf),
            "\"version\":%u,\"boot_id\":%u,\"defs_hash\":%" PRIu32 ",\"time\":%" PRIu32 ",\"uptime_s\":%" PRIu32
            ",\"output_slots\":%u,",
