@@ -69,6 +69,7 @@ void WattLedgerComponent::setup() {
     } else {
       this->boot_id_ = 1;
     }
+    this->load_anchors_();
     this->write_event_(EVENT_BOOT, 0, RECORD_VERSION, this->defs_hash_);
     this->min1_.ring = &this->journal_.min1();
     this->min5_.ring = &this->journal_.min5();
@@ -110,18 +111,7 @@ void WattLedgerComponent::loop() {
     this->advance_(now);
 
   const uint32_t unix_now = this->unix_now_();
-  if (unix_now != 0 && !this->anchored_) {
-    // First valid time this boot: lets readers place this boot's untimed
-    // intervals (design 6.2). Untimed intervals end here.
-    this->anchored_ = true;
-    this->write_event_(EVENT_ANCHOR, unix_now, 0, 0);
-    for (Tier *tier : {&this->min1_, &this->min5_}) {
-      if (tier->open && !tier->timed) {
-        this->close_tier_(*tier);
-        this->open_tier_(*tier, unix_now);
-      }
-    }
-  }
+  this->track_time_(unix_now);
 
   for (Tier *tier : {&this->min1_, &this->min5_}) {
     if (!tier->open) {
@@ -134,6 +124,57 @@ void WattLedgerComponent::loop() {
       this->close_tier_(*tier);
       this->open_tier_(*tier, unix_now);
     }
+  }
+}
+
+void WattLedgerComponent::track_time_(uint32_t unix_now) {
+  if (unix_now == 0)
+    return;
+  if (!this->anchored_) {
+    // First valid time this boot: lets readers place this boot's untimed
+    // intervals (design 6.2). Untimed intervals end here.
+    this->anchored_ = true;
+    {
+      std::lock_guard<std::mutex> lock(this->journal_mutex_);
+      this->anchors_.add(this->boot_id_, static_cast<uint32_t>(this->uptime_ms_ / 1000), unix_now);
+    }
+    this->write_event_(EVENT_ANCHOR, unix_now, 0, 0);
+    this->restart_tiers_(unix_now, 0);
+  } else {
+    // Valid time advances with uptime, give or take a second for its
+    // whole-second resolution; more than that is a clock step (design 6.3).
+    const double elapsed = (this->uptime_ms_ - this->last_unix_uptime_ms_) / 1000.0;
+    const double expected = this->last_unix_ + elapsed;
+    if (std::fabs(unix_now - expected) >= 2.0) {
+      ESP_LOGW(TAG, "Clock stepped by %.0f s", unix_now - expected);
+      this->write_event_(EVENT_CLOCK_STEP, unix_now, static_cast<uint32_t>(expected), 0);
+      this->restart_tiers_(unix_now, FLAG_CLOCK_STEP);
+    }
+  }
+  this->last_unix_ = unix_now;
+  this->last_unix_uptime_ms_ = this->uptime_ms_;
+}
+
+void WattLedgerComponent::restart_tiers_(uint32_t unix_now, uint8_t flags) {
+  for (Tier *tier : {&this->min1_, &this->min5_}) {
+    if (!tier->open)
+      continue;
+    tier->flags |= flags;
+    this->close_tier_(*tier);
+    this->open_tier_(*tier, unix_now);
+  }
+}
+
+void WattLedgerComponent::load_anchors_() {
+  Ring &events = this->journal_.events();
+  uint8_t raw[EVENT_RECORD_SIZE];
+  for (uint32_t seq = events.first_seq(); seq < events.next_seq(); seq++) {
+    if (!events.read(seq, raw))
+      continue;
+    EventRecord ev;
+    decode_event(raw, ev);
+    if (ev.type == EVENT_ANCHOR)
+      this->anchors_.add(ev.boot_id, ev.mono_s, ev.unix_s);
   }
 }
 
@@ -322,9 +363,12 @@ std::string WattLedgerComponent::info_json() {
 }
 
 void WattLedgerComponent::append_interval_json_(const IntervalRecord &rec, std::string &out) const {
-  char buf[96];
-  snprintf(buf, sizeof(buf), "[%" PRIu32 ",%u,%u,%" PRIu32 ",%" PRIu32 ",%u,%u,[", rec.seq, rec.flags, rec.boot_id,
-           rec.defs_hash, rec.start, rec.duration_s, rec.coverage_s);
+  // Untimed records are placed through their boot's anchor; 0 if it has none.
+  const uint32_t start_unix =
+      (rec.flags & FLAG_UNTIMED) ? this->anchors_.resolve(rec.boot_id, rec.start) : rec.start;
+  char buf[112];
+  snprintf(buf, sizeof(buf), "[%" PRIu32 ",%u,%u,%" PRIu32 ",%" PRIu32 ",%" PRIu32 ",%u,%u,[", rec.seq, rec.flags,
+           rec.boot_id, rec.defs_hash, rec.start, start_unix, rec.duration_s, rec.coverage_s);
   out += buf;
   for (size_t i = 0; i < rec.input_import_mwh.size(); i++) {
     snprintf(buf, sizeof(buf), "%s%" PRIu32 ",%" PRIu32, i > 0 ? "," : "", rec.input_import_mwh[i],

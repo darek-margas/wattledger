@@ -100,9 +100,22 @@ Changing a lambda keeps the journal.
 | `GET /wattledger/v1/rows?tier=min1&from_seq=N&limit=M` | Up to 60 records of `min1`, `min5` or `events`, oldest first, and `next_from_seq` |
 
 An interval row is
-`[seq, flags, boot_id, defs_hash, start, duration_s, coverage_s, [input import/export mWh...], [output import/export mWh...], [line 0.1 V...], price_import, price_export, cost, credit]`.
-An event row is `[seq, type, boot_id, uptime_s, unix_s, a, b]` (type 1 boot,
-2 first valid time of a boot).
+`[seq, flags, boot_id, defs_hash, start, start_unix, duration_s, coverage_s, [input import/export mWh...], [output import/export mWh...], [line 0.1 V...], price_import, price_export, cost, credit]`.
+
+- `flags`: 1 untimed, 2 partial (gaps), 16 cut short by a clock step,
+  32 first after boot.
+- `start` is as recorded: Unix time, or seconds since boot when untimed.
+  `start_unix` is always Unix time: untimed records are placed through the
+  first valid time of their boot. It is 0 when that boot never got a valid
+  time (power failed again first); such records can't be placed.
+- Untimed and clock-step records aren't aligned to minute boundaries; readers
+  that need aligned buckets share their energy across the buckets they
+  overlap, in proportion to time.
+
+An event row is `[seq, type, boot_id, uptime_s, unix_s, a, b]`: type 1 boot,
+2 first valid time of a boot, 3 clock step (`unix_s` new time, `a` expected
+time). A jump of 2 s or more is a clock step: the open intervals end there and
+new ones start.
 
 ## RTC component
 
