@@ -1,0 +1,52 @@
+# WattLedger base for an Emporia Vue 3.
+#
+# Include together with the emporiavue Vue 3 I2C base and topology packages.
+# Requires the `rv1805` external component from this repository.
+#
+# Substitutions (set them in the node YAML):
+#   timezone      IANA zone, e.g. Australia/Sydney; defines the local day
+#   ntp_server_1  internal NTP server (pfSense or similar)
+#   ntp_server_2  second internal NTP server
+#   ntp_server_3  public fallback
+
+substitutions:
+  timezone: UTC
+  ntp_server_1: 0.pool.ntp.org
+  ntp_server_2: 1.pool.ntp.org
+  ntp_server_3: 2.pool.ntp.org
+
+esp32:
+  # Confirm with `esptool flash_id` before the first install: one Vue 3 unit
+  # reported 8 MB, but that isn't guaranteed for every hardware revision.
+  flash_size: 8MB
+  partitions:
+    # WattLedger journal (design section 5.4). ESPHome shrinks the two app
+    # partitions to make room: with ESP-IDF, the SAMD09 backup partition and
+    # this one, each app partition is 1.81 MB.
+    - name: wattledger
+      type: data
+      subtype: undefined
+      size: 0x3C0000
+
+api:
+  # Keep measuring and uploading while Home Assistant is down. The default
+  # reboots the device after 15 minutes without an API client.
+  reboot_timeout: 0s
+
+time:
+  # On the Vue 3's I2C bus, shared with the SAMD09 (0x64); the RV-1805 is 0x69.
+  # Sets the system clock at boot, before the network is up, if its time is valid.
+  - platform: rv1805
+    id: rtc_time
+    timezone: ${timezone}
+
+  - platform: sntp
+    id: sntp_time
+    timezone: ${timezone}
+    servers:
+      - ${ntp_server_1}
+      - ${ntp_server_2}
+      - ${ntp_server_3}
+    on_time_sync:
+      then:
+        - lambda: id(rtc_time).write_time();

@@ -1,0 +1,22 @@
+name: Compile examples
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [vue3-grid, vue3-generator]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install esphome
+      - run: cp examples/secrets.yaml.example examples/secrets.yaml
+      - run: esphome compile examples/${{ matrix.example }}.yaml

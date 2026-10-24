@@ -244,21 +244,27 @@ source text, computed at codegen). When reading a record:
   during a write) is treated as missing.
 - Wear: the min1 ring (~200 sectors) cycles every 48 h, so each sector is
   erased ~180 times a year, versus ~100,000-cycle endurance.
-- Proposed 8 MB partition table:
+- Partition table: ESPHome generates it. Extra partitions are declared under
+  `esp32: partitions:` (or registered by a component with `add_partition()`),
+  appended at the end, and the two app partitions shrink to make room. The
+  emporiavue Vue 3 package adds `samd_bak` (64 KB). With ESP-IDF on 8 MB:
 
-| Name | Type | Offset | Size |
-|---|---|---|---|
-| nvs | data/nvs | 0x9000 | 0x5000 |
-| otadata | data/ota | 0xE000 | 0x2000 |
-| app0 | app/ota_0 | 0x10000 | 0x1C0000 (1.75 MB) |
-| app1 | app/ota_1 | 0x1D0000 | 0x1C0000 (1.75 MB) |
-| samd_backup | data | 0x390000 | 0x10000 |
-| wattledger | data | 0x3A0000 | 0x450000 (4.3 MB) |
-| coredump | data/coredump | 0x7F0000 | 0x10000 |
+| Name | Size |
+|---|---|
+| otadata, phy_init | 12 KB |
+| app0, app1 | 1.81 MB each |
+| nvs | 448 KB |
+| samd_bak | 64 KB |
+| wattledger | 3.75 MB (0x3C0000) |
 
-**Open:** confirm the flash size on both units (`esptool flash_id`), the
-compiled firmware size with Ethernet, HTTPS and the web server, and what
-partition layout the emporiavue SAMD09 backup feature expects.
+  Milestone 1 declares `wattledger` in `packages/vue3-wattledger.yaml`. From
+  milestone 3 the component registers it itself, sized from the configuration.
+  The example sizing in 5.2 (~3.7 MB) only just fits, so the default may
+  need `min5: store_inputs: false` or fewer retained days.
+
+**Open:** confirm the flash size on both units (`esptool flash_id`) and the
+compiled firmware size with Ethernet, HTTPS and the web server against the
+1.81 MB app partitions.
 
 ## 6. Time
 
@@ -270,9 +276,11 @@ In order of preference:
    servers.
 2. **RTC.** A SparkFun RV-1805 module (supercapacitor, about 35 days without
    power) on the Vue 3's existing I2C bus (SDA GPIO5, SCL GPIO18, shared with
-   the SAMD09 at 0x64; RV-1805 at 0x69). A small `rv1805` ESPHome time
-   component reads it at boot and is written from SNTP after each sync. The
-   RTC's oscillator-failure flag marks its time invalid.
+   the SAMD09 at 0x64; RV-1805 at 0x69). The `rv1805` ESPHome time
+   component reads it at boot; SNTP's `on_time_sync` writes it. The RTC's
+   oscillator-failure flag (set when backup power ran out) marks its time
+   invalid. It runs on its crystal while powered and switches to its
+   autocalibrated RC oscillator on backup.
 3. **None** (untimed mode, 6.2).
 
 ESPHome automatic reboots are disabled: `api: reboot_timeout: 0s` and

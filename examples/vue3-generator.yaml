@@ -1,0 +1,107 @@
+# Generator Vue: the four circuits behind the two-pole changeover.
+#
+# Wire its voltage input and power from the changeover's output side, so it
+# always measures against whichever source is selected (grid or generator),
+# with its own neutral. No PVOutput upload and no cost on this unit.
+
+substitutions:
+  name: vue-generator
+  friendly_name: Vue Generator
+  timezone: UTC  # set your zone, e.g. Australia/Sydney
+  ntp_server_1: 192.168.1.1  # pfSense
+  ntp_server_2: 192.168.1.2  # second internal NTP server
+  ntp_server_3: pool.ntp.org
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+    version: recommended
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/rosenrot00/emporiavue.git
+      ref: main
+    components: [emporiavue]
+  - source:
+      type: local
+      path: ../components
+    components: [rv1805]
+
+packages:
+  emporiavue:
+    url: https://github.com/rosenrot00/emporiavue.git
+    ref: main
+    files:
+      - packages/vue3-i2c.yaml
+      - packages/vue3-1phase.yaml
+      - packages/vue3-gpios.yaml
+  wattledger: !include ../packages/vue3-wattledger.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  reboot_timeout: 0s
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+    allow_partition_access: true
+    on_begin:
+      then:
+        - lambda: global_preferences->sync();
+
+logger:
+  logs:
+    sensor: INFO
+
+preferences:
+  flash_write_interval: never
+
+emporiavue:
+  filter_defaults:
+    power:
+      - throttle_average: 5s
+    energy:
+      - throttle: 60s
+
+  # line_1 (BLACK) is the changeover output. The mains clamp and the package's
+  # "grid" group are unused on this unit.
+  circuits:
+    cir1:
+      name: "Generator circuit 1"
+      line: 1
+      power:
+      energy:
+    cir2:
+      name: "Generator circuit 2"
+      line: 1
+      power:
+      energy:
+    cir3:
+      name: "Generator circuit 3"
+      line: 1
+      power:
+      energy:
+    cir4:
+      name: "Generator circuit 4"
+      line: 1
+      power:
+      energy:
+
+  # Voltage and frequency show which source is feeding the changeover.
+  mains:
+    line_1:
+      voltage:
+        name: "Changeover voltage"
+      frequency:
+        name: "Changeover frequency"
