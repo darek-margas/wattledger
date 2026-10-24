@@ -1,0 +1,18 @@
+{
+  "entity": {
+    "sensor": {
+      "imported_until": {
+        "default": "mdi:database-clock-outline"
+      },
+      "backlog": {
+        "default": "mdi:tray-full"
+      },
+      "unplaced": {
+        "default": "mdi:clock-alert-outline"
+      },
+      "boot_id": {
+        "default": "mdi:restart"
+      }
+    }
+  }
+}
