@@ -16,14 +16,48 @@ design and milestones. Not usable yet beyond the RTC component.
 
 | Path | What |
 |---|---|
+| `components/wattledger` | Sampler: output lambdas evaluated on every sample, import/export energy per input and output (journal and uploads to come) |
 | `components/rv1805` | ESPHome time platform for the Micro Crystal RV-1805 RTC (SparkFun Qwiic RTC board, supercapacitor backup) |
 | `packages/vue3-wattledger.yaml` | Vue 3 base: 8 MB flash, journal partition, SNTP time, no reboot while Home Assistant is down |
 | `packages/vue3-rtc.yaml` | Optional: RV-1805 RTC, for units with one soldered in |
 | `examples/` | Complete node configurations for the grid and generator Vues |
 | `docs/design.md` | Design |
 
-Planned: `components/wattledger` (journal, outputs, PVOutput uploader, cost)
+Planned: the journal, PVOutput uploader and cost in `components/wattledger`,
 and `custom_components/wattledger` (Home Assistant integration).
+
+## Outputs
+
+```yaml
+wattledger:
+  inputs:                 # power sensors (W); their unfiltered values are used
+    - id: mains
+      sensor: line_1_power
+    - id: solar
+      sensor: cir1
+  lines:                  # voltage sensors (V)
+    - id: line_1
+      sensor: line_1_voltage
+  outputs:
+    - id: generation
+      lambda: |-
+        return solar < -15.0f ? -solar : 0.0f;
+      power:
+        name: "Solar generation power"
+      import_energy:
+        name: "Solar generation"
+```
+
+- Inputs are passed to every output lambda as `float` parameters named by
+  their `id`. Lambdas must only use those parameters, so history can be
+  recalculated from stored inputs.
+- Lambdas run on every sample (each driver update, about 220 ms on the Vue),
+  so clamps and sign splits are exact. Positive results count as import,
+  negative as export.
+- Time when any input is missing or stale (`stale_timeout`, default 5 s) is a
+  gap: no energy is added for it.
+- `power` publishes the average over each `update_interval` (default 10 s);
+  `import_energy` and `export_energy` are kWh since boot.
 
 ## Hardware
 

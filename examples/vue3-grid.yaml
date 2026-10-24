@@ -28,7 +28,7 @@ external_components:
   - source:
       type: local
       path: ../components
-    components: [rv1805]
+    components: [rv1805, wattledger]
 
 packages:
   emporiavue:
@@ -93,3 +93,44 @@ emporiavue:
   groups:
     grid:
       power:
+
+wattledger:
+  # Inputs are the driver's unfiltered power sensors: mains `line_1_power`,
+  # circuits `cir1`...`cir16`. Consuming loads read positive, so the inverter's
+  # circuit reads negative while generating.
+  inputs:
+    - id: mains
+      sensor: line_1_power
+    - id: solar
+      sensor: cir1
+    - id: hws
+      sensor: cir2
+  lines:
+    - id: line_1
+      sensor: line_1_voltage
+  outputs:
+    - id: grid
+      # Positive import, negative export; split into import and export energy.
+      lambda: return mains;
+      power:
+        # "Grid Power" is the driver's grid group sensor.
+        name: "Grid net power"
+      import_energy:
+        name: "Grid import"
+      export_energy:
+        name: "Grid export"
+    - id: generation
+      # The inverter draws ~0.5 A at PF ~0 overnight; ignore anything under 15 W.
+      lambda: |-
+        return solar < -15.0f ? -solar : 0.0f;
+      power:
+        name: "Solar generation power"
+      import_energy:
+        name: "Solar generation"
+    - id: consumption
+      lambda: |-
+        return mains + (solar < -15.0f ? -solar : 0.0f);
+      power:
+        name: "Consumption power"
+      import_energy:
+        name: "Consumption"
