@@ -48,6 +48,13 @@ class WattLedgerComponent : public PollingComponent {
   /// the tier is unknown or the journal isn't available.
   bool rows_json(const std::string &tier, uint32_t from_seq, uint32_t limit, std::string &out);
 
+  /// Sequence range of the 5-minute tier. Safe from other tasks.
+  bool min5_range(uint32_t &first_seq, uint32_t &next_seq);
+  /// Reads a 5-minute record; `start_unix` is its placed start, 0 if its boot
+  /// has no valid time (yet). False if the record isn't there. Safe from other tasks.
+  bool read_min5(uint32_t seq, IntervalRecord &rec, uint32_t &start_unix);
+  uint16_t boot_id() const { return this->boot_id_; }
+
  protected:
   struct Input {
     const char *name;
