@@ -9,8 +9,10 @@ and uploads to [PVOutput](https://pvoutput.org) directly when the internet is
 back. Home Assistant gets live values and can fill gaps from the device's
 history after downtime.
 
-**Status:** early development. See [docs/design.md](docs/design.md) for the
-design and milestones. Not usable yet beyond the RTC component.
+**Status:** early development, not yet tested on hardware. See
+[docs/design.md](docs/design.md) for the design and milestones.
+
+<img src="custom_components/wattledger/brand/logo.png" alt="WattLedger" height="64">
 
 ## Contents
 
@@ -21,10 +23,37 @@ design and milestones. Not usable yet beyond the RTC component.
 | `packages/vue3-wattledger.yaml` | Vue 3 base: 8 MB flash, journal partition, SNTP time, no reboot while Home Assistant is down |
 | `packages/vue3-rtc.yaml` | Optional: RV-1805 RTC, for units with one soldered in |
 | `examples/` | Complete node configurations for the grid and generator Vues |
+| `custom_components/wattledger` | Home Assistant integration: imports the device's history into Energy dashboard statistics |
 | `docs/design.md` | Design |
+| `docs/brand` | Icon and logo sources |
 
-Planned: the journal, PVOutput uploader and cost in `components/wattledger`,
-and `custom_components/wattledger` (Home Assistant integration).
+Planned: the PVOutput uploader and cost on the device.
+
+## Home Assistant integration
+
+Install with HACS as a custom repository (category *Integration*), or copy
+`custom_components/wattledger` into your configuration. Requires Home
+Assistant 2026.3 or later.
+
+Add it under **Settings → Devices & services → Add integration → WattLedger**
+with the device's host name or IP address. It complements the ESPHome
+integration, which still provides the live sensors.
+
+- Every 5 minutes it reads new 1-minute records from the device and imports
+  them as hourly statistics: for each input and output, an import and an
+  export series in kWh, named `wattledger:<device>_<id>_import` /
+  `_export`. Choose them in the **Energy dashboard** configuration.
+- The statistics come from the device's own records, so Home Assistant
+  downtime up to the device's 1-minute retention (48 h by default) leaves no
+  gap. Records from before the device's clock was set are placed once it is;
+  records from a boot that never got a valid time are counted as unplaced.
+- Diagnostic sensors: statistics imported until, records waiting, unplaced
+  intervals, boot number. A diagnostics download shows the device info and
+  import state.
+- If an output's lambda changes, records made with the old definition are
+  imported for inputs only.
+- Removing the integration keeps the statistics; adding the device again
+  continues them.
 
 ## Outputs
 
