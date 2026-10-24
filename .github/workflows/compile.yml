@@ -1,4 +1,4 @@
-name: Compile examples
+name: CI
 
 on:
   push:
@@ -6,6 +6,17 @@ on:
   pull_request:
 
 jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Accumulator
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
+            tests/host/test_accumulator.cpp components/wattledger/accumulator.cpp \
+            -o test_accumulator
+          ./test_accumulator
+
   compile:
     runs-on: ubuntu-latest
     strategy:

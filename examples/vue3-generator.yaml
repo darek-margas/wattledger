@@ -28,6 +28,10 @@ external_components:
       url: https://github.com/rosenrot00/emporiavue.git
       ref: main
     components: [emporiavue]
+  - source:
+      type: local
+      path: ../components
+    components: [wattledger]
 
 packages:
   emporiavue:
@@ -102,3 +106,24 @@ emporiavue:
         name: "Changeover voltage"
       frequency:
         name: "Changeover frequency"
+
+wattledger:
+  inputs:
+    - id: gen1
+      sensor: cir1
+    - id: gen2
+      sensor: cir2
+    - id: gen3
+      sensor: cir3
+    - id: gen4
+      sensor: cir4
+  lines:
+    - id: changeover
+      sensor: line_1_voltage
+  outputs:
+    - id: changeover_load
+      lambda: return gen1 + gen2 + gen3 + gen4;
+      power:
+        name: "Changeover circuits power"
+      import_energy:
+        name: "Changeover circuits energy"
