@@ -456,6 +456,28 @@ bool WattLedgerComponent::rows_json(const std::string &tier, uint32_t from_seq, 
   return true;
 }
 
+bool WattLedgerComponent::min5_range(uint32_t &first_seq, uint32_t &next_seq) {
+  if (!this->journal_ok_)
+    return false;
+  std::lock_guard<std::mutex> lock(this->journal_mutex_);
+  first_seq = this->journal_.min5().first_seq();
+  next_seq = this->journal_.min5().next_seq();
+  return true;
+}
+
+bool WattLedgerComponent::read_min5(uint32_t seq, IntervalRecord &rec, uint32_t &start_unix) {
+  if (!this->journal_ok_)
+    return false;
+  std::lock_guard<std::mutex> lock(this->journal_mutex_);
+  Ring &ring = this->journal_.min5();
+  std::vector<uint8_t> raw(ring.record_size());
+  if (!ring.read(seq, raw.data()))
+    return false;
+  this->layout_.decode(raw.data(), rec);
+  start_unix = (rec.flags & FLAG_UNTIMED) ? this->anchors_.resolve(rec.boot_id, rec.start) : rec.start;
+  return true;
+}
+
 void WattLedgerComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "WattLedger:");
   ESP_LOGCONFIG(TAG, "  Definitions hash: 0x%08" PRIX32, this->defs_hash_);

@@ -2,7 +2,14 @@ import json
 import zlib
 
 import esphome.codegen as cg
-from esphome.components import sensor, time, web_server_base
+from esphome.components import (
+    button,
+    esp32,
+    sensor,
+    text_sensor,
+    time,
+    web_server_base,
+)
 from esphome.components.esp32 import add_partition
 from esphome.components.web_server_base import CONF_WEB_SERVER_BASE_ID
 import esphome.config_validation as cv
@@ -14,15 +21,18 @@ from esphome.const import (
     CONF_TIME_ID,
     DEVICE_CLASS_ENERGY,
     DEVICE_CLASS_POWER,
+    DEVICE_CLASS_TIMESTAMP,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     STATE_CLASS_MEASUREMENT,
     STATE_CLASS_TOTAL_INCREASING,
     UNIT_KILOWATT_HOURS,
+    UNIT_PERCENT,
     UNIT_WATT,
 )
 
 CODEOWNERS = ["@darek-margas"]
 DEPENDENCIES = ["network"]
-AUTO_LOAD = ["sensor", "web_server_base"]
+AUTO_LOAD = ["sensor", "text_sensor", "button", "web_server_base"]
 
 CONF_INPUTS = "inputs"
 CONF_LINES = "lines"
@@ -34,6 +44,20 @@ CONF_OUTPUT_SLOTS = "output_slots"
 CONF_MIN1_RETENTION = "min1_retention"
 CONF_MIN5_RETENTION = "min5_retention"
 CONF_WEB_HANDLER_ID = "web_handler_id"
+CONF_PVOUTPUT = "pvoutput"
+CONF_API_KEY = "api_key"
+CONF_SYSTEM_ID = "system_id"
+CONF_DONOR = "donor"
+CONF_GENERATION = "generation"
+CONF_CONSUMPTION = "consumption"
+CONF_VOLTAGE = "voltage"
+CONF_RESERVE_REQUESTS = "reserve_requests"
+CONF_BACKLOG = "backlog"
+CONF_RATE_LIMIT_REMAINING = "rate_limit_remaining"
+CONF_LAST_UPLOAD = "last_upload"
+CONF_REPLAY_PROGRESS = "replay_progress"
+CONF_LAST_ERROR = "last_error"
+CONF_REPLAY = "replay"
 
 PARTITION_NAME = "wattledger"
 SECTOR_SIZE = 4096
@@ -46,6 +70,58 @@ WattLedgerComponent = wattledger_ns.class_(
     "WattLedgerComponent", cg.PollingComponent
 )
 WebHandler = wattledger_ns.class_("WebHandler", cg.Component)
+PVOutputUploader = wattledger_ns.class_("PVOutputUploader", cg.PollingComponent)
+ReplayButton = wattledger_ns.class_("ReplayButton", button.Button)
+
+PVOUTPUT_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(): cv.declare_id(PVOutputUploader),
+        cv.Required(CONF_API_KEY): cv.string_strict,
+        cv.Required(CONF_SYSTEM_ID): cv.string,
+        # Donation mode: 100 statuses per request, 300 requests/h, 90 days of
+        # history; otherwise 30, 60/h and 14 days.
+        cv.Optional(CONF_DONOR, default=False): cv.boolean,
+        # Output ids: their import energy is uploaded.
+        cv.Required(CONF_GENERATION): cv.string,
+        cv.Optional(CONF_CONSUMPTION): cv.string,
+        # Line id for the voltage (v6).
+        cv.Optional(CONF_VOLTAGE): cv.string,
+        # Requests per hour left for other clients of the same API key.
+        cv.Optional(CONF_RESERVE_REQUESTS, default=10): cv.int_range(min=0, max=250),
+        cv.Optional(CONF_BACKLOG): sensor.sensor_schema(
+            unit_of_measurement="records",
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            icon="mdi:tray-full",
+        ),
+        cv.Optional(CONF_RATE_LIMIT_REMAINING): sensor.sensor_schema(
+            unit_of_measurement="requests",
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            icon="mdi:speedometer-slow",
+        ),
+        cv.Optional(CONF_LAST_UPLOAD): sensor.sensor_schema(
+            device_class=DEVICE_CLASS_TIMESTAMP,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            icon="mdi:cloud-upload",
+        ),
+        cv.Optional(CONF_REPLAY_PROGRESS): sensor.sensor_schema(
+            unit_of_measurement=UNIT_PERCENT,
+            accuracy_decimals=0,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            icon="mdi:history",
+        ),
+        cv.Optional(CONF_LAST_ERROR): text_sensor.text_sensor_schema(
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+            icon="mdi:alert-circle-outline",
+        ),
+        cv.Optional(CONF_REPLAY): button.button_schema(
+            ReplayButton, icon="mdi:cloud-refresh"
+        ),
+    }
+).extend(cv.polling_component_schema("10s"))
 
 
 def variable_name(value):
@@ -110,6 +186,23 @@ def _validate_unique_names(config):
     if duplicates:
         raise cv.Invalid(
             f"Input, line and output ids must be unique: {', '.join(duplicates)}"
+        )
+    return config
+
+
+def _validate_pvoutput(config):
+    if (pvo := config.get(CONF_PVOUTPUT)) is None:
+        return config
+    outputs = [item[CONF_ID] for item in config[CONF_OUTPUTS]]
+    lines = [item[CONF_ID] for item in config[CONF_LINES]]
+    for key in (CONF_GENERATION, CONF_CONSUMPTION):
+        if key in pvo and pvo[key] not in outputs:
+            raise cv.Invalid(
+                f"{CONF_PVOUTPUT}.{key}: '{pvo[key]}' is not an output (outputs: {', '.join(outputs)})"
+            )
+    if CONF_VOLTAGE in pvo and pvo[CONF_VOLTAGE] not in lines:
+        raise cv.Invalid(
+            f"{CONF_PVOUTPUT}.{CONF_VOLTAGE}: '{pvo[CONF_VOLTAGE]}' is not a line (lines: {', '.join(lines)})"
         )
     return config
 
@@ -183,11 +276,13 @@ CONFIG_SCHEMA = cv.All(
                 web_server_base.WebServerBase
             ),
             cv.GenerateID(CONF_WEB_HANDLER_ID): cv.declare_id(WebHandler),
+            cv.Optional(CONF_PVOUTPUT): PVOUTPUT_SCHEMA,
         }
     ).extend(cv.polling_component_schema("10s")),
     cv.only_on_esp32,
     _validate_unique_names,
     _validate_output_slots,
+    _validate_pvoutput,
 )
 
 
@@ -230,6 +325,9 @@ async def to_code(config):
     handler = cg.new_Pvariable(config[CONF_WEB_HANDLER_ID], base, var)
     await cg.register_component(handler, {})
 
+    if pvo := config.get(CONF_PVOUTPUT):
+        await _pvoutput_to_code(config, pvo, var)
+
     input_names = [item[CONF_ID] for item in config[CONF_INPUTS]]
     for item in config[CONF_INPUTS]:
         sens = await cg.get_variable(item[CONF_SENSOR])
@@ -256,3 +354,37 @@ async def to_code(config):
             else:
                 sensors.append(cg.nullptr)
         cg.add(var.add_output(item[CONF_ID], output_fn, *sensors))
+
+
+async def _pvoutput_to_code(config, pvo, ledger):
+    esp32.request_http_client()
+    esp32.request_tls()
+    esp32.require_certificate_bundle()
+
+    outputs = [item[CONF_ID] for item in config[CONF_OUTPUTS]]
+    lines = [item[CONF_ID] for item in config[CONF_LINES]]
+    var = cg.new_Pvariable(pvo[CONF_ID], ledger)
+    await cg.register_component(var, pvo)
+    cg.add(var.set_api_key(pvo[CONF_API_KEY]))
+    cg.add(var.set_system_id(pvo[CONF_SYSTEM_ID]))
+    cg.add(var.set_donor(pvo[CONF_DONOR]))
+    cg.add(var.set_generation(outputs.index(pvo[CONF_GENERATION])))
+    if CONF_CONSUMPTION in pvo:
+        cg.add(var.set_consumption(outputs.index(pvo[CONF_CONSUMPTION])))
+    if CONF_VOLTAGE in pvo:
+        cg.add(var.set_voltage(lines.index(pvo[CONF_VOLTAGE])))
+    cg.add(var.set_reserve_requests(pvo[CONF_RESERVE_REQUESTS]))
+
+    for key, setter in (
+        (CONF_BACKLOG, var.set_backlog_sensor),
+        (CONF_RATE_LIMIT_REMAINING, var.set_rate_limit_sensor),
+        (CONF_LAST_UPLOAD, var.set_last_upload_sensor),
+        (CONF_REPLAY_PROGRESS, var.set_replay_progress_sensor),
+    ):
+        if key in pvo:
+            cg.add(setter(await sensor.new_sensor(pvo[key])))
+    if CONF_LAST_ERROR in pvo:
+        cg.add(var.set_last_error_sensor(await text_sensor.new_text_sensor(pvo[CONF_LAST_ERROR])))
+    if CONF_REPLAY in pvo:
+        btn = await button.new_button(pvo[CONF_REPLAY])
+        await cg.register_parented(btn, var)

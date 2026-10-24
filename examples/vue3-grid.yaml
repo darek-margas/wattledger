@@ -135,3 +135,23 @@ wattledger:
         name: "Consumption power"
       import_energy:
         name: "Consumption"
+  # Direct upload to PVOutput: generation and consumption every 5 minutes.
+  pvoutput:
+    api_key: !secret pvoutput_api_key
+    system_id: !secret pvoutput_system_id
+    donor: false
+    generation: generation
+    consumption: consumption
+    voltage: line_1
+    backlog:
+      name: "PVOutput backlog"
+    rate_limit_remaining:
+      name: "PVOutput requests left"
+    last_upload:
+      name: "PVOutput last upload"
+    replay_progress:
+      name: "PVOutput replay progress"
+    last_error:
+      name: "PVOutput status"
+    replay:
+      name: "PVOutput replay"

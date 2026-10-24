@@ -18,7 +18,7 @@ history after downtime.
 
 | Path | What |
 |---|---|
-| `components/wattledger` | Sampler (output lambdas on every sample, import/export energy), flash journal of 1- and 5-minute intervals, HTTP history API (PVOutput uploads and cost to come) |
+| `components/wattledger` | Sampler (output lambdas on every sample, import/export energy), flash journal of 1- and 5-minute intervals, HTTP history API, direct PVOutput uploads (cost to come) |
 | `components/rv3028` | ESPHome time platform for the Micro Crystal RV-3028 RTC (PiicoDev RTC board, supercapacitor backup) |
 | `components/rv1805` | Same for the RV-1805 (SparkFun Qwiic RTC board), as an alternative |
 | `packages/vue3-wattledger.yaml` | Vue 3 base: 8 MB flash, journal partition, SNTP time, no reboot while Home Assistant is down |
@@ -28,7 +28,7 @@ history after downtime.
 | `docs/design.md` | Design |
 | `docs/brand` | Icon and logo sources |
 
-Planned: the PVOutput uploader and cost on the device.
+Planned: cost and daily sealing on the device.
 
 ## Home Assistant integration
 
@@ -148,6 +148,45 @@ An event row is `[seq, type, boot_id, uptime_s, unix_s, a, b]`: type 1 boot,
 2 first valid time of a boot, 3 clock step (`unix_s` new time, `a` expected
 time). A jump of 2 s or more is a clock step: the open intervals end there and
 new ones start.
+
+## PVOutput
+
+```yaml
+wattledger:
+  pvoutput:
+    api_key: !secret pvoutput_api_key
+    system_id: !secret pvoutput_system_id
+    donor: false            # true: 100 statuses/request, 300 requests/h, 90 days
+    generation: generation  # output ids; their import energy is uploaded
+    consumption: consumption
+    voltage: line_1         # line id
+    reserve_requests: 10    # per hour, left for other clients of the key
+    backlog: {name: "PVOutput backlog"}
+    rate_limit_remaining: {name: "PVOutput requests left"}
+    last_upload: {name: "PVOutput last upload"}
+    replay_progress: {name: "PVOutput replay progress"}
+    last_error: {name: "PVOutput status"}
+    replay: {name: "PVOutput replay"}
+```
+
+- Uploads from the device itself, from the 5-minute journal, so it keeps
+  working with Home Assistant down and catches up after an internet outage
+  (up to the 5-minute retention, 30 days by default, within PVOutput's 14 or
+  90 days).
+- Each status reports energy since local midnight (`v1`, `v3`), average power
+  (`v2`, `v4`) and average voltage (`v6`) at the end of its 5 minutes; the
+  last status of a day is reported at 23:59. Set the PVOutput system's status
+  interval to 5 minutes and the device's `timezone` to the system's.
+- Uploading starts from the moment it's first enabled. **Replay** re-sends
+  every complete day still in the journal, overwriting those days on
+  PVOutput; live uploads keep priority.
+- Upload positions survive reboots. A batch counts as sent only when
+  PVOutput accepts it. Rate limits are read from PVOutput's headers; when the
+  allowance is used up (or down to `reserve_requests`) uploads wait for the
+  reset. Rejected batches (400) are skipped and reported in the status
+  sensor; a bad key or system id pauses uploads for 30 minutes at a time.
+- Don't upload the same PVOutput system from another uploader (such as an HA
+  PVOutput integration) for the same fields: they would overwrite each other.
 
 ## RTC components
 

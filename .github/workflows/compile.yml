@@ -27,6 +27,11 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
             tests/host/test_timeline.cpp components/wattledger/timeline.cpp -o test_timeline
           ./test_timeline
+      - name: PVOutput statuses
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
+            tests/host/test_pvoutput.cpp components/wattledger/pvoutput_status.cpp -o test_pvoutput
+          ./test_pvoutput
 
   integration-tests:
     runs-on: ubuntu-latest
