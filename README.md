@@ -40,7 +40,8 @@ wattledger:
       sensor: line_1_voltage
   outputs:
     - id: generation
-      lambda: return solar < -15.0f ? -solar : 0.0f;
+      lambda: |-
+        return solar < -15.0f ? -solar : 0.0f;
       power:
         name: "Solar generation power"
       import_energy:

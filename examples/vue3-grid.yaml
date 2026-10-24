@@ -120,13 +120,15 @@ wattledger:
         name: "Grid export"
     - id: generation
       # The inverter draws ~0.5 A at PF ~0 overnight; ignore anything under 15 W.
-      lambda: return solar < -15.0f ? -solar : 0.0f;
+      lambda: |-
+        return solar < -15.0f ? -solar : 0.0f;
       power:
         name: "Solar generation power"
       import_energy:
         name: "Solar generation"
     - id: consumption
-      lambda: return mains + (solar < -15.0f ? -solar : 0.0f);
+      lambda: |-
+        return mains + (solar < -15.0f ? -solar : 0.0f);
       power:
         name: "Consumption power"
       import_energy:
