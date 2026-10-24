@@ -19,9 +19,10 @@ history after downtime.
 | Path | What |
 |---|---|
 | `components/wattledger` | Sampler (output lambdas on every sample, import/export energy), flash journal of 1- and 5-minute intervals, HTTP history API (PVOutput uploads and cost to come) |
-| `components/rv1805` | ESPHome time platform for the Micro Crystal RV-1805 RTC (SparkFun Qwiic RTC board, supercapacitor backup) |
+| `components/rv3028` | ESPHome time platform for the Micro Crystal RV-3028 RTC (PiicoDev RTC board, supercapacitor backup) |
+| `components/rv1805` | Same for the RV-1805 (SparkFun Qwiic RTC board), as an alternative |
 | `packages/vue3-wattledger.yaml` | Vue 3 base: 8 MB flash, journal partition, SNTP time, no reboot while Home Assistant is down |
-| `packages/vue3-rtc.yaml` | Optional: RV-1805 RTC, for units with one soldered in |
+| `packages/vue3-rtc.yaml` | Optional: RV-3028 RTC, for units with one soldered in |
 | `examples/` | Complete node configurations for the grid and generator Vues |
 | `custom_components/wattledger` | Home Assistant integration: imports the device's history into Energy dashboard statistics |
 | `docs/design.md` | Design |
@@ -93,10 +94,12 @@ wattledger:
 - Emporia Vue 3 flashed with ESPHome using
   [rosenrot00/emporiavue](https://github.com/rosenrot00/emporiavue) in I2C
   mode (stock SAMD09 firmware).
-- Optional: a SparkFun RV-1805 Qwiic RTC fitted inside the Vue on the
-  existing I2C bus (SDA GPIO5, SCL GPIO18), powered from the 3.3 V and GND
-  flashing pads. Remove the Qwiic connectors and open the board's I2C pull-up
-  jumper. Without it, a boot with no NTP server reachable records untimed
+- Optional: a [PiicoDev RV-3028 RTC](https://core-electronics.com.au/piicodev-real-time-clock-rv3028.html)
+  fitted inside the Vue on the existing I2C bus (SDA GPIO5, SCL GPIO18),
+  powered from the 3.3 V and GND flashing pads. Its supercapacitor keeps time
+  for about a week without power. Remove the PiicoDev connectors to keep it
+  flat, and cut the board's I2C pull-up jumper (the Vue's bus has its own).
+  Without an RTC, a boot with no NTP server reachable records untimed
   intervals until the first sync; data is only lost if power fails again
   before that.
 
@@ -146,23 +149,26 @@ An event row is `[seq, type, boot_id, uptime_s, unix_s, a, b]`: type 1 boot,
 time). A jump of 2 s or more is a clock step: the open intervals end there and
 new ones start.
 
-## RTC component
+## RTC components
 
 ```yaml
 external_components:
   - source: github://darek-margas/wattledger@main
-    components: [rv1805]
+    components: [rv3028]
 
 time:
   - platform: sntp
     id: sntp_time
-  - platform: rv1805
+  - platform: rv3028      # or rv1805
     id: rtc_time
     write_from: sntp_time
 ```
 
 - At boot, sets the system clock from the RTC, unless the RTC reports that it
   lost its backup power or was never set.
+- The RV-3028 keeps UTC in its Unix-time counter. Its backup switchover and
+  trickle charger settings are stored in its EEPROM (written only when they
+  differ), because the chip reloads them from EEPROM every 24 h.
 - `write_from` stores the time in the RTC after every sync of that time
   source. Alternatively call `id(rtc_time).write_time()` yourself.
 - `id(rtc_time).read_time()` reads it again; this also happens every

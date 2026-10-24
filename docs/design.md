@@ -279,9 +279,9 @@ In order of preference:
 
 1. **SNTP** from the internal NTP servers (pfSense and others), then public
    servers.
-2. **RTC (optional, needs soldering; `packages/vue3-rtc.yaml`).** A SparkFun RV-1805 module (supercapacitor, about 35 days without
+2. **RTC (optional, needs soldering; `packages/vue3-rtc.yaml`).** A PiicoDev RV-3028 module (supercapacitor, about a week without
    power) on the Vue 3's existing I2C bus (SDA GPIO5, SCL GPIO18, shared with
-   the SAMD09 at 0x64; RV-1805 at 0x69). The `rv1805` ESPHome time
+   the SAMD09 at 0x64; RV-3028 at 0x52). The `rv3028` ESPHome time
    component reads it at boot; SNTP's `on_time_sync` writes it. The RTC's
    oscillator-failure flag (set when backup power ran out) marks its time
    invalid. It runs on its crystal while powered and switches to its
@@ -293,7 +293,7 @@ ESPHome automatic reboots are disabled: `api: reboot_timeout: 0s` and
 device reboots every 15 minutes while HA or the network is down.
 
 **Open:** verify that TP9/TP10 are SDA/SCL (continuity to ESP32 GPIO5/18,
-board unpowered), and that the RV-1805 board fits between the board and the
+board unpowered), and that the RV-3028 board fits between the board and the
 lid with its connectors removed and its pull-up jumpers opened.
 
 ### 6.2 Untimed mode
@@ -543,7 +543,7 @@ completely.
    per-frame access; partition expectations for the SAMD09 backup.
 2. Flash size of both Vue 3 units; firmware size with Ethernet, HTTPS, web
    server.
-3. TP9/TP10 as SDA/SCL; RV-1805 fit.
+3. TP9/TP10 as SDA/SCL; RV-3028 fit.
 4. PVOutput: per-status response format; behaviour of partial-field updates;
    donor status of the account.
 5. Price entities, update rate and supply charge format.
