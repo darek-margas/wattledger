@@ -8,6 +8,19 @@
 
 namespace esphome::wattledger {
 
+/// Local calendar position of a Unix time.
+struct LocalTime {
+  uint32_t date;       ///< yyyymmdd
+  uint16_t minute;     ///< minutes since local midnight
+  uint32_t day_start;  ///< Unix time of local midnight
+};
+
+/// Local time in the process's time zone (set by the ESPHome time component).
+LocalTime local_time(uint32_t unix_time);
+/// Unix time of the local midnight that ends the day starting at `day_start`
+/// (23 or 25 hours later on daylight-saving changes).
+uint32_t next_local_midnight(uint32_t day_start);
+
 /// The first valid time of each boot, from the journal's anchor events.
 /// Untimed records (start = seconds since boot) are placed through it.
 class AnchorTable {

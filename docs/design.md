@@ -446,9 +446,11 @@ expressed.
 ### 8.2 Sealing a day
 
 - A local day is sealed at local midnight + `seal_delay` (default 15 min) from
-  that day's min1 records, which are still in the 48 h ring. If that day has
-  untimed records with no anchor yet, sealing waits up to 24 h, then seals
-  with an `unresolved` flag.
+  that day's min5 records (30 days retained, so days missed during an outage
+  can still be sealed; cost is already exact per record). Sealing needs a
+  valid time, by which point the current boot is anchored, so every record
+  that can be placed is; records of boots that never got a valid time can't
+  belong to any day.
 - The day record holds: date, per-input and per-output import and export
   energy, average voltage per line, cost, credit, supply charge, total, and
   quality counters: missing minutes, untimed minutes resolved, fallback-price

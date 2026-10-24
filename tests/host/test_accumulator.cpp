@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "accumulator.h"
+#include "prices.h"
 
 using namespace esphome::wattledger;
 
@@ -67,7 +68,44 @@ static void test_lines_and_delta() {
   expect_near(d.valid_ms, 1000, "delta valid ms");
 }
 
+static void test_cost_per_sample() {
+  Accumulator acc;
+  acc.configure(1, 0, {grid});
+  acc.set_cost_output(0);
+  Prices live{0.30, 0.05, Prices::LIVE};
+  Prices schedule{0.50, 0.05, Prices::SCHEDULE};
+  // 1 kW import for an hour at 0.30, then 1 kW export for an hour.
+  float w = 1000.0f;
+  acc.integrate(&w, nullptr, 3600000, true, live);
+  w = -1000.0f;
+  acc.integrate(&w, nullptr, 3600000, true, live);
+  // Half an hour import on the fallback schedule; and no prices at all.
+  w = 2000.0f;
+  acc.integrate(&w, nullptr, 1800000, true, schedule);
+  acc.integrate(&w, nullptr, 1800000, true, Prices{});
+  const Totals &t = acc.totals();
+  expect_near(t.cost, 0.30 + 0.50, "cost");
+  expect_near(t.credit, 0.05, "credit");
+  expect_near(t.price_schedule_ms, 1800000, "schedule time");
+  expect_near(t.price_stale_ms, 0, "stale time");
+}
+
+static void test_price_schedule() {
+  PriceSchedule s;
+  s.add(15 * 60, 21 * 60, 0.45, 0.05);  // peak
+  s.add(21 * 60, 15 * 60, 0.28, 0.05);  // off-peak, wrapping past midnight
+  double imp = 0, exp = 0;
+  expect_near(s.lookup(16 * 60, imp, exp) ? imp : -1, 0.45, "peak");
+  expect_near(s.lookup(23 * 60, imp, exp) ? imp : -1, 0.28, "late off-peak");
+  expect_near(s.lookup(3 * 60, imp, exp) ? imp : -1, 0.28, "early off-peak");
+  PriceSchedule partial;
+  partial.add(0, 60, 0.1, 0.0);
+  expect_near(partial.lookup(120, imp, exp) ? 1 : 0, 0, "not covered");
+}
+
 int main() {
+  test_cost_per_sample();
+  test_price_schedule();
   test_split_and_per_sample_clamp();
   test_invalid_time_is_a_gap();
   test_lines_and_delta();

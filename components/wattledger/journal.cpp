@@ -145,27 +145,29 @@ uint32_t Ring::append(uint8_t *record) {
 static const uint32_t SUPERBLOCK_MAGIC = 0x42534C57;  // "WLSB"
 static const uint32_t SUPERBLOCK_VERSION = 1;
 
-uint32_t Journal::required_size(uint32_t interval_record_size, uint32_t min1_records, uint32_t min5_records,
-                                uint32_t event_records) {
-  return (1 + Ring::sectors_for(event_records, 32) + Ring::sectors_for(min1_records, interval_record_size) +
-          Ring::sectors_for(min5_records, interval_record_size)) *
+uint32_t Journal::required_size(const JournalLayout &l) {
+  return (1 + Ring::sectors_for(l.event_records, 32) + Ring::sectors_for(l.min1_records, l.interval_record_size) +
+          Ring::sectors_for(l.min5_records, l.interval_record_size) +
+          Ring::sectors_for(l.day_records, l.day_record_size)) *
          SECTOR_SIZE;
 }
 
-bool Journal::begin(Storage *storage, uint32_t interval_record_size, uint32_t min1_records, uint32_t min5_records,
-                    uint32_t event_records) {
-  if (storage->size() < required_size(interval_record_size, min1_records, min5_records, event_records))
+bool Journal::begin(Storage *storage, const JournalLayout &l) {
+  if (storage->size() < required_size(l))
     return false;
-  const uint32_t ev_sectors = Ring::sectors_for(event_records, 32);
-  const uint32_t m1_sectors = Ring::sectors_for(min1_records, interval_record_size);
-  const uint32_t m5_sectors = Ring::sectors_for(min5_records, interval_record_size);
+  const uint32_t ev_sectors = Ring::sectors_for(l.event_records, 32);
+  const uint32_t m1_sectors = Ring::sectors_for(l.min1_records, l.interval_record_size);
+  const uint32_t m5_sectors = Ring::sectors_for(l.min5_records, l.interval_record_size);
+  const uint32_t day_sectors = Ring::sectors_for(l.day_records, l.day_record_size);
 
-  uint8_t layout[20];
+  uint8_t layout[28];
   put_u32(layout, SUPERBLOCK_VERSION);
-  put_u32(layout + 4, interval_record_size);
+  put_u32(layout + 4, l.interval_record_size);
   put_u32(layout + 8, ev_sectors);
   put_u32(layout + 12, m1_sectors);
   put_u32(layout + 16, m5_sectors);
+  put_u32(layout + 20, l.day_record_size);
+  put_u32(layout + 24, day_sectors);
   const uint32_t layout_hash = crc32(0, layout, sizeof(layout));
 
   uint8_t sb[12];
@@ -185,10 +187,12 @@ bool Journal::begin(Storage *storage, uint32_t interval_record_size, uint32_t mi
   uint32_t sector = 1;
   this->events_.configure(storage, sector, ev_sectors, 32, layout_hash ^ 0x45564E54);
   sector += ev_sectors;
-  this->min1_.configure(storage, sector, m1_sectors, interval_record_size, layout_hash ^ 0x4D494E31);
+  this->min1_.configure(storage, sector, m1_sectors, l.interval_record_size, layout_hash ^ 0x4D494E31);
   sector += m1_sectors;
-  this->min5_.configure(storage, sector, m5_sectors, interval_record_size, layout_hash ^ 0x4D494E35);
-  return this->events_.scan() && this->min1_.scan() && this->min5_.scan();
+  this->min5_.configure(storage, sector, m5_sectors, l.interval_record_size, layout_hash ^ 0x4D494E35);
+  sector += m5_sectors;
+  this->days_.configure(storage, sector, day_sectors, l.day_record_size, layout_hash ^ 0x44415953);
+  return this->events_.scan() && this->min1_.scan() && this->min5_.scan() && this->days_.scan();
 }
 
 }  // namespace esphome::wattledger

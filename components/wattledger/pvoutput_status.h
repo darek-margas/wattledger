@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "timeline.h"
+
 namespace esphome::wattledger {
 
 static const uint32_t STATUS_INTERVAL_S = 300;
@@ -24,12 +26,6 @@ struct PlacedRecord {
   float voltage;
 };
 
-/// Local calendar position of a Unix time.
-struct LocalTime {
-  uint32_t date;          ///< yyyymmdd
-  uint16_t minute;        ///< minutes since local midnight
-  uint32_t day_start;     ///< Unix time of local midnight
-};
 using ToLocal = std::function<LocalTime(uint32_t unix_time)>;
 
 /// One 5-minute status.

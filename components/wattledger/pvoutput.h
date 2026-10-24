@@ -78,7 +78,6 @@ class PVOutputUploader : public PollingComponent {
   int post_(const std::string &body, std::string &response);
   void save_(const char *key, const Job &job);
   void set_error_(const std::string &error);
-  static LocalTime to_local_(uint32_t unix_time);
   bool place_(uint32_t seq, PlacedRecord &out, bool &wait);
 
   WattLedgerComponent *ledger_;

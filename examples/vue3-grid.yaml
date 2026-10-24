@@ -23,7 +23,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/rosenrot00/emporiavue.git
-      ref: main
+      ref: 2026.10.4  # pinned driver release; update deliberately
     components: [emporiavue]
   - source:
       type: local
@@ -33,7 +33,7 @@ external_components:
 packages:
   emporiavue:
     url: https://github.com/rosenrot00/emporiavue.git
-    ref: main
+    ref: 2026.10.4
     files:
       - packages/vue3-i2c.yaml
       - packages/vue3-1phase.yaml
@@ -94,6 +94,17 @@ emporiavue:
     grid:
       power:
 
+sensor:
+  # Prices in currency per kWh from Home Assistant; use your tariff's entities.
+  - platform: homeassistant
+    id: import_price
+    entity_id: sensor.electricity_import_price
+    internal: true
+  - platform: homeassistant
+    id: export_price
+    entity_id: sensor.electricity_export_price
+    internal: true
+
 wattledger:
   time_id: sntp_time
   # Inputs are the driver's unfiltered power sensors: mains `line_1_power`,
@@ -135,6 +146,23 @@ wattledger:
         name: "Consumption power"
       import_energy:
         name: "Consumption"
+  # Cost of grid import and credit for export, from Home Assistant prices.
+  cost:
+    output: grid
+    import_price: import_price
+    export_price: export_price
+    daily_supply_charge: 1.10
+    # Used while Home Assistant is unavailable.
+    fallback_schedule:
+      - {from: "00:00", to: "15:00", import: 0.28, export: 0.05}
+      - {from: "15:00", to: "21:00", import: 0.45, export: 0.05}
+      - {from: "21:00", to: "24:00", import: 0.28, export: 0.05}
+    cost_today:
+      name: "Electricity cost today"
+      unit_of_measurement: AUD
+    credit_today:
+      name: "Electricity credit today"
+      unit_of_measurement: AUD
   # Direct upload to PVOutput: generation and consumption every 5 minutes.
   pvoutput:
     api_key: !secret pvoutput_api_key

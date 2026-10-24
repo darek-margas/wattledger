@@ -74,23 +74,32 @@ class Ring {
   std::vector<uint8_t> buffer_;
 };
 
-/// The journal partition: a superblock sector, then the event, 1-minute and
-/// 5-minute rings. A different layout (another record size or retention)
-/// starts a new journal; old records then fail their seeded CRC.
+/// Record sizes and counts of the journal's rings.
+struct JournalLayout {
+  uint32_t interval_record_size;
+  uint32_t min1_records;
+  uint32_t min5_records;
+  uint32_t event_records;
+  uint32_t day_record_size;
+  uint32_t day_records;
+};
+
+/// The journal partition: a superblock sector, then the event, 1-minute,
+/// 5-minute and day rings. A different layout (another record size or
+/// retention) starts a new journal; old records then fail their seeded CRC.
 class Journal {
  public:
   /// Bytes needed; the build sizes the partition with the same formula.
-  static uint32_t required_size(uint32_t interval_record_size, uint32_t min1_records, uint32_t min5_records,
-                                uint32_t event_records);
+  static uint32_t required_size(const JournalLayout &layout);
 
   /// Opens the journal, starting a new one if the layout changed. False on
   /// storage errors or if the storage is too small.
-  bool begin(Storage *storage, uint32_t interval_record_size, uint32_t min1_records, uint32_t min5_records,
-             uint32_t event_records);
+  bool begin(Storage *storage, const JournalLayout &layout);
 
   Ring &events() { return this->events_; }
   Ring &min1() { return this->min1_; }
   Ring &min5() { return this->min5_; }
+  Ring &days() { return this->days_; }
   /// True if begin() started a new journal.
   bool started_new() const { return this->started_new_; }
 
@@ -98,6 +107,7 @@ class Journal {
   Ring events_;
   Ring min1_;
   Ring min5_;
+  Ring days_;
   bool started_new_{false};
 };
 

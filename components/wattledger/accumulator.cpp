@@ -28,7 +28,8 @@ void Accumulator::add_split_(double power_w, double hours, double &import_wh, do
   }
 }
 
-void Accumulator::integrate(const float *input_w, const float *line_v, uint32_t dt_ms, bool valid) {
+void Accumulator::integrate(const float *input_w, const float *line_v, uint32_t dt_ms, bool valid,
+                            const Prices &prices) {
   if (dt_ms == 0)
     return;
   Totals &t = this->totals_;
@@ -56,6 +57,19 @@ void Accumulator::integrate(const float *input_w, const float *line_v, uint32_t 
     this->output_w_[o] = power;
     add_split_(power, hours, t.output_import_wh[o], t.output_export_wh[o]);
   }
+
+  if (this->cost_output_ >= 0 && prices.source != Prices::NONE) {
+    const double kwh = this->output_w_[this->cost_output_] * hours / 1000.0;
+    if (kwh >= 0) {
+      t.cost += kwh * prices.import_per_kwh;
+    } else {
+      t.credit -= kwh * prices.export_per_kwh;
+    }
+    if (prices.source == Prices::STALE)
+      t.price_stale_ms += dt_ms;
+    else if (prices.source == Prices::SCHEDULE)
+      t.price_schedule_ms += dt_ms;
+  }
 }
 
 Totals delta(const Totals &later, const Totals &earlier) {
@@ -74,6 +88,10 @@ Totals delta(const Totals &later, const Totals &earlier) {
   }
   d.valid_ms -= earlier.valid_ms;
   d.total_ms -= earlier.total_ms;
+  d.cost -= earlier.cost;
+  d.credit -= earlier.credit;
+  d.price_stale_ms -= earlier.price_stale_ms;
+  d.price_schedule_ms -= earlier.price_schedule_ms;
   return d;
 }
 

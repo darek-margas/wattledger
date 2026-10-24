@@ -26,7 +26,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/rosenrot00/emporiavue.git
-      ref: main
+      ref: 2026.10.4  # pinned driver release; update deliberately
     components: [emporiavue]
   - source:
       type: local
@@ -36,7 +36,7 @@ external_components:
 packages:
   emporiavue:
     url: https://github.com/rosenrot00/emporiavue.git
-    ref: main
+    ref: 2026.10.4
     files:
       - packages/vue3-i2c.yaml
       - packages/vue3-1phase.yaml

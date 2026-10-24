@@ -16,6 +16,12 @@ jobs:
             tests/host/test_accumulator.cpp components/wattledger/accumulator.cpp \
             -o test_accumulator
           ./test_accumulator
+      - name: Sealing
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
+            tests/host/test_sealing.cpp components/wattledger/sealing.cpp components/wattledger/records.cpp \
+            components/wattledger/journal.cpp -o test_sealing
+          ./test_sealing
       - name: Journal
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
@@ -30,7 +36,8 @@ jobs:
       - name: PVOutput statuses
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -I components/wattledger \
-            tests/host/test_pvoutput.cpp components/wattledger/pvoutput_status.cpp -o test_pvoutput
+            tests/host/test_pvoutput.cpp components/wattledger/pvoutput_status.cpp \
+            components/wattledger/timeline.cpp -o test_pvoutput
           ./test_pvoutput
 
   integration-tests:

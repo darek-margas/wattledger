@@ -59,6 +59,44 @@ class IntervalLayout {
   size_t lines_;
 };
 
+enum DayFlag : uint8_t {
+  DAY_PARTIAL = 1 << 0,      ///< coverage < length of the day
+  DAY_MIXED_DEFS = 1 << 1,   ///< some records were made under other output definitions
+};
+
+/// A sealed local day (design section 8.2).
+struct DayRecord {
+  uint32_t seq{0};
+  uint8_t flags{0};
+  uint32_t date{0};       ///< yyyymmdd
+  uint32_t day_start{0};  ///< Unix time of local midnight
+  uint32_t length_s{0};   ///< 86400, or 23/25 h on DST changes
+  uint32_t coverage_s{0};
+  uint16_t records{0};
+  uint32_t price_stale_s{0};
+  uint32_t price_schedule_s{0};
+  uint32_t defs_hash{0};
+  std::vector<uint32_t> input_import_mwh, input_export_mwh;
+  std::vector<uint32_t> output_import_mwh, output_export_mwh;
+  std::vector<uint16_t> line_dv;
+  /// 1e-6 currency units.
+  int32_t cost{0}, credit{0}, supply_charge{0};
+};
+
+class DayLayout {
+ public:
+  DayLayout(size_t inputs, size_t output_slots, size_t lines)
+      : inputs_(inputs), output_slots_(output_slots), lines_(lines) {}
+  size_t size() const;
+  void encode(const DayRecord &rec, uint8_t *out) const;
+  void decode(const uint8_t *in, DayRecord &rec) const;
+
+ protected:
+  size_t inputs_;
+  size_t output_slots_;
+  size_t lines_;
+};
+
 enum EventType : uint8_t {
   EVENT_BOOT = 1,    ///< a: record format version
   EVENT_ANCHOR = 2,      ///< monotonic and Unix time at the first valid time of a boot

@@ -148,14 +148,22 @@ class WattLedgerCoordinator(DataUpdateCoordinator[LedgerStatus]):
             ]
             if not stats:
                 continue
+            if channel.kind == "money":
+                # Cost and credit, in Home Assistant's currency (the device's
+                # prices are assumed to be in it too).
+                name = f"{title} {channel.name}"
+                unit_class, unit = None, self.hass.config.currency
+            else:
+                name = f"{title} {channel.name} {channel.direction}"
+                unit_class, unit = "energy", UnitOfEnergy.KILO_WATT_HOUR
             metadata = StatisticMetaData(
                 mean_type=StatisticMeanType.NONE,
                 has_sum=True,
-                name=f"{title} {channel.name} {channel.direction}",
+                name=name,
                 source=DOMAIN,
                 statistic_id=self.statistic_id(info, channel),
-                unit_class="energy",
-                unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+                unit_class=unit_class,
+                unit_of_measurement=unit,
             )
             async_add_external_statistics(self.hass, metadata, stats)
 
