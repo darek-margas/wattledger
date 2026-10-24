@@ -113,7 +113,8 @@ wattledger:
       # Positive import, negative export; split into import and export energy.
       lambda: return mains;
       power:
-        name: "Grid power"
+        # "Grid Power" is the driver's grid group sensor.
+        name: "Grid net power"
       import_energy:
         name: "Grid import"
       export_energy:

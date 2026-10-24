@@ -136,16 +136,20 @@ Outputs are C++ lambdas whose parameters are the inputs, by id:
 wattledger:
   outputs:
     - id: grid
-      name: Grid
       lambda: return mains_a;
     - id: generation
-      name: Solar generation
-      # inverter standby draws ~0.5 A at PF ~0 at night; clamp it out
-      lambda: return (solar > 15.0f) ? solar : 0.0f;
+      # The inverter circuit reads negative while generating (consuming
+      # loads read positive). Its standby draw (~0.5 A at PF ~0 at night)
+      # is clamped out.
+      lambda: |-
+        return solar < -15.0f ? -solar : 0.0f;
     - id: consumption
-      name: Consumption
-      lambda: return mains_a + std::max(solar, 0.0f);
+      lambda: |-
+        return mains_a + (solar < -15.0f ? -solar : 0.0f);
 ```
+
+Lambdas containing `: ` (the conditional operator) must be YAML block
+scalars (`|-`).
 
 - Codegen passes every input as a named `float` parameter (`process_lambda`
   with one parameter per input), and wraps the result in a
