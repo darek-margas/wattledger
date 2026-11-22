@@ -97,8 +97,13 @@ wattledger:
 - Optional: a [PiicoDev RV-3028 RTC](https://core-electronics.com.au/piicodev-real-time-clock-rv3028.html)
   fitted inside the Vue on the existing I2C bus (SDA GPIO5, SCL GPIO18),
   powered from the 3.3 V and GND flashing pads. Its supercapacitor keeps time
-  for about a week without power. Remove the PiicoDev connectors to keep it
-  flat, and cut the board's I2C pull-up jumper (the Vue's bus has its own).
+  for about a week without power. The bus has no test point: SDA and SCL are
+  soldered to the ESP32-WROVER-IE's pins 29 and 30. Remove the PiicoDev
+  connectors to keep it flat, and cut the board's I2C pull-up jumper (the
+  Vue's bus has its own).
+- [docs/vue3-hardware.md](docs/vue3-hardware.md): serial backup and first
+  flash (ground TP6 to hold the SAMD09 in reset, or reads get corrupted), and
+  fitting and testing the RTC, with photos.
   Without an RTC, a boot with no NTP server reachable records untimed
   intervals until the first sync; data is only lost if power fails again
   before that.
