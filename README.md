@@ -23,6 +23,8 @@ history after downtime.
 | `components/rv1805` | Same for the RV-1805 (SparkFun Qwiic RTC board), as an alternative |
 | `packages/vue3-wattledger.yaml` | Vue 3 base: 8 MB flash, journal partition, SNTP time, no reboot while Home Assistant is down |
 | `packages/vue3-rtc.yaml` | Optional: RV-3028 RTC, for units with one soldered in |
+| `packages/vue3-ethernet.yaml` | Optional: wired Ethernet (RTL8201), preferred over Wi-Fi while the cable has a link |
+| `docs/vue3-hardware.md` | Step-by-step: serial backup, first flash, fitting the RTC, with annotated photos |
 | `examples/` | Complete node configurations for the grid and generator Vues |
 | `custom_components/wattledger` | Home Assistant integration: imports the device's history into Energy dashboard statistics |
 | `docs/design.md` | Design |
@@ -97,8 +99,16 @@ wattledger:
 - Optional: a [PiicoDev RV-3028 RTC](https://core-electronics.com.au/piicodev-real-time-clock-rv3028.html)
   fitted inside the Vue on the existing I2C bus (SDA GPIO5, SCL GPIO18),
   powered from the 3.3 V and GND flashing pads. Its supercapacitor keeps time
-  for about a week without power. Remove the PiicoDev connectors to keep it
-  flat, and cut the board's I2C pull-up jumper (the Vue's bus has its own).
+  for about a week without power. The bus has no test point: SDA and SCL are
+  soldered to the ESP32-WROVER-IE's pins 29 and 30. Remove the PiicoDev
+  connectors to keep it flat, and cut the board's I2C pull-up jumper (the
+  Vue's bus has its own).
+- [docs/vue3-hardware.md](docs/vue3-hardware.md): serial backup and first
+  flash (ground TP6 to hold the SAMD09 in reset, or reads get corrupted), and
+  fitting and testing the RTC, step by step with annotated photos.
+- Wired Ethernet works with `packages/vue3-ethernet.yaml` (RTL8201, MDC
+  GPIO32, MDIO GPIO33, clock in on GPIO0). Wi-Fi stays configured as the
+  fallback.
   Without an RTC, a boot with no NTP server reachable records untimed
   intervals until the first sync; data is only lost if power fails again
   before that.

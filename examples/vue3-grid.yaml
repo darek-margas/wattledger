@@ -23,7 +23,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/rosenrot00/emporiavue.git
-      ref: 2026.10.4  # pinned driver release; update deliberately
+      ref: 2026.11.1  # pinned driver release; update deliberately
     components: [emporiavue]
   - source:
       type: local
@@ -33,7 +33,7 @@ external_components:
 packages:
   emporiavue:
     url: https://github.com/rosenrot00/emporiavue.git
-    ref: 2026.10.4
+    ref: 2026.11.1
     files:
       - packages/vue3-i2c.yaml
       - packages/vue3-1phase.yaml
@@ -41,9 +41,9 @@ packages:
   wattledger: !include ../packages/vue3-wattledger.yaml
   # This unit has the optional RV-3028 RTC fitted.
   wattledger_rtc: !include ../packages/vue3-rtc.yaml
+  # Ethernet preferred, Wi-Fi when the cable is out.
+  wattledger_ethernet: !include ../packages/vue3-ethernet.yaml
 
-# Wired Ethernet is preferred, but the Vue 3's PHY type and pins aren't
-# confirmed yet (design open question 2). Wi-Fi until then.
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password

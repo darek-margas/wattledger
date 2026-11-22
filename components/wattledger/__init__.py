@@ -32,6 +32,10 @@ from esphome.const import (
     UNIT_WATT,
 )
 
+# Masked in dashboards and config dumps. cv.sensitive is new in ESPHome
+# 2026.11; older versions fall back to a plain string.
+_secret = getattr(cv, "sensitive", lambda inner: inner)
+
 CODEOWNERS = ["@darek-margas"]
 DEPENDENCIES = ["network"]
 AUTO_LOAD = ["sensor", "text_sensor", "button", "web_server_base"]
@@ -93,7 +97,7 @@ ReplayButton = wattledger_ns.class_("ReplayButton", button.Button)
 PVOUTPUT_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(PVOutputUploader),
-        cv.Required(CONF_API_KEY): cv.string_strict,
+        cv.Required(CONF_API_KEY): _secret(cv.string_strict),
         cv.Required(CONF_SYSTEM_ID): cv.string,
         # Donation mode: 100 statuses per request, 300 requests/h, 90 days of
         # history; otherwise 30, 60/h and 14 days.

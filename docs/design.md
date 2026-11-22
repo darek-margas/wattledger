@@ -292,9 +292,9 @@ ESPHome automatic reboots are disabled: `api: reboot_timeout: 0s` and
 `wifi: reboot_timeout: 0s` (Ethernet has no such timeout). Otherwise the
 device reboots every 15 minutes while HA or the network is down.
 
-**Open:** verify that TP9/TP10 are SDA/SCL (continuity to ESP32 GPIO5/18,
-board unpowered), and that the RV-3028 board fits between the board and the
-lid with its connectors removed and its pull-up jumpers opened.
+TP9/TP10 turned out not to be SDA/SCL; the bus has no test point. The RTC is
+soldered to the ESP32-WROVER-IE's pins 29 (GPIO5) and 30 (GPIO18) and sits on
+the module's shield. Fitting and testing: [vue3-hardware.md](vue3-hardware.md).
 
 ### 6.2 Untimed mode
 
@@ -543,9 +543,11 @@ completely.
 
 1. emporiavue driver: per-CT publication interval and grouping; calibrated
    per-frame access; partition expectations for the SAMD09 backup.
-2. Flash size of both Vue 3 units; firmware size with Ethernet, HTTPS, web
-   server.
-3. TP9/TP10 as SDA/SCL; RV-3028 fit.
+2. ~~Flash size of both Vue 3 units; firmware size with Ethernet, HTTPS, web
+   server.~~ The first unit has 8 MB. Ethernet is an RTL8201 on MDC GPIO32,
+   MDIO GPIO33, clock in on GPIO0 (`packages/vue3-ethernet.yaml`).
+3. ~~TP9/TP10 as SDA/SCL; RV-3028 fit.~~ Settled: pins 29/30 of the module
+   (see vue3-hardware.md).
 4. PVOutput: per-status response format; behaviour of partial-field updates;
    donor status of the account.
 5. Price entities, update rate and supply charge format.
