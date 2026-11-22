@@ -12,7 +12,8 @@ history after downtime.
 **Status:** 1.0.0. Running on an Emporia Vue 3 since November 2026: journal,
 PVOutput uploads and the RV-3028 RTC confirmed on the device, voltage
 calibration still rough. Not yet tested on hardware: Ethernet, the generator
-Vue, and the week-long comparison against an IoTaWatt. See
+Vue, the Home Assistant integration's history import, and the week-long
+comparison against an IoTaWatt. See
 [docs/vue3-hardware.md](docs/vue3-hardware.md) for converting a Vue 3 and
 [docs/design.md](docs/design.md) for the design.
 
