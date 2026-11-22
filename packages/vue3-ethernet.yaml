@@ -1,4 +1,4 @@
-# Wired Ethernet for an Emporia Vue 3, alongside Wi-Fi.
+# Wired Ethernet for an Emporia Vue 3, alongside Wi-Fi, plus the status LEDs.
 #
 # Include next to the node's own `wifi:` block. Both interfaces stay up;
 # traffic uses Ethernet while it has a link and Wi-Fi otherwise. Adding this
@@ -21,3 +21,31 @@ ethernet:
   clk:
     pin: GPIO0
     mode: CLK_EXT_IN
+
+# Status LEDs: GPIO2 for Wi-Fi, GPIO4 for Ethernet. Each is on while its
+# interface is connected; both blink while neither is. This replaces the
+# driver's packages/vue3-gpios.yaml, which only ever lights the Wi-Fi LED when
+# Wi-Fi is compiled in. Don't include both: they drive the same pins.
+output:
+  - platform: gpio
+    id: vue3_wifi_led
+    pin:
+      number: GPIO2
+      ignore_strapping_warning: true
+  - platform: gpio
+    id: vue3_ethernet_led
+    pin: GPIO4
+
+interval:
+  - interval: 250ms
+    then:
+      - lambda: |-
+          static bool blink = false;
+          blink = !blink;
+          const bool eth = esphome::ethernet::global_eth_component != nullptr &&
+                           esphome::ethernet::global_eth_component->is_connected();
+          const bool wifi = esphome::wifi::global_wifi_component != nullptr &&
+                            esphome::wifi::global_wifi_component->is_connected();
+          const bool none = !eth && !wifi;
+          id(vue3_ethernet_led).set_state(eth || (none && blink));
+          id(vue3_wifi_led).set_state(wifi || (none && blink));
