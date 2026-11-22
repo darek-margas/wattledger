@@ -9,8 +9,12 @@ and uploads to [PVOutput](https://pvoutput.org) directly when the internet is
 back. Home Assistant gets live values and can fill gaps from the device's
 history after downtime.
 
-**Status:** early development, not yet tested on hardware. See
-[docs/design.md](docs/design.md) for the design and milestones.
+**Status:** 1.0.0. Running on an Emporia Vue 3 since November 2026: journal,
+PVOutput uploads and the RV-3028 RTC confirmed on the device, voltage
+calibration still rough. Not yet tested on hardware: Ethernet, the generator
+Vue, and the week-long comparison against an IoTaWatt. See
+[docs/vue3-hardware.md](docs/vue3-hardware.md) for converting a Vue 3 and
+[docs/design.md](docs/design.md) for the design.
 
 <img src="custom_components/wattledger/brand/logo.png" alt="WattLedger" height="64">
 
