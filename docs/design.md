@@ -543,8 +543,9 @@ completely.
 
 1. emporiavue driver: per-CT publication interval and grouping; calibrated
    per-frame access; partition expectations for the SAMD09 backup.
-2. Flash size of both Vue 3 units; firmware size with Ethernet, HTTPS, web
-   server.
+2. ~~Flash size of both Vue 3 units; firmware size with Ethernet, HTTPS, web
+   server.~~ The first unit has 8 MB. Ethernet is an RTL8201 on MDC GPIO32,
+   MDIO GPIO33, clock in on GPIO0 (`packages/vue3-ethernet.yaml`).
 3. ~~TP9/TP10 as SDA/SCL; RV-3028 fit.~~ Settled: pins 29/30 of the module
    (see vue3-hardware.md).
 4. PVOutput: per-status response format; behaviour of partial-field updates;

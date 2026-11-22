@@ -1,0 +1,23 @@
+# Wired Ethernet for an Emporia Vue 3, alongside Wi-Fi.
+#
+# Include next to the node's own `wifi:` block. Both interfaces stay up;
+# traffic uses Ethernet while it has a link and Wi-Fi otherwise. Adding this
+# changes only the app, so it can be installed over OTA.
+#
+# The Vue 3 has an RTL8201F PHY (U18) on the ESP32's RMII pins, with MDC on
+# GPIO32, MDIO on GPIO33 and the 50 MHz reference clock coming in on GPIO0.
+# The same settings are in the emporia-vue-local base config and in a working
+# Vue 3 setup on the Home Assistant forum.
+
+network:
+  priority:
+    - ethernet
+    - wifi
+
+ethernet:
+  type: RTL8201
+  mdc_pin: GPIO32
+  mdio_pin: GPIO33
+  clk:
+    pin: GPIO0
+    mode: CLK_EXT_IN
