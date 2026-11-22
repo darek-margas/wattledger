@@ -37,7 +37,7 @@ packages:
     files:
       - packages/vue3-i2c.yaml
       - packages/vue3-1phase.yaml
-      - packages/vue3-gpios.yaml
+      # No vue3-gpios.yaml: vue3-ethernet.yaml drives the status LEDs.
   wattledger: !include ../packages/vue3-wattledger.yaml
   # This unit has the optional RV-3028 RTC fitted.
   wattledger_rtc: !include ../packages/vue3-rtc.yaml
