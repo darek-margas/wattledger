@@ -1,0 +1,19 @@
+name: HACS validation
+
+# hacs/default runs the same checks before listing a repository, and again
+# later; the weekly run shows breakage from HACS-side rule changes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
