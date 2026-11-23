@@ -4,6 +4,7 @@
 // Independent of ESPHome so it can be unit-tested on the host.
 
 #include <cstdint>
+#include <ctime>
 #include <vector>
 
 namespace esphome::wattledger {
@@ -15,7 +16,14 @@ struct LocalTime {
   uint32_t day_start;  ///< Unix time of local midnight
 };
 
-/// Local time in the process's time zone (set by the ESPHome time component).
+/// Converts a Unix time to local calendar fields; false on failure.
+using LocalConverter = bool (*)(time_t unix_time, struct tm *out);
+/// Sets how local time is worked out. The default is libc's localtime_r(),
+/// which follows TZ. ESPHome no longer sets TZ on the device, so the
+/// component installs ESPHome's own timezone conversion here.
+void set_local_converter(LocalConverter converter);
+
+/// Local time in the converter's time zone.
 LocalTime local_time(uint32_t unix_time);
 /// Unix time of the local midnight that ends the day starting at `day_start`
 /// (23 or 25 hours later on daylight-saving changes).

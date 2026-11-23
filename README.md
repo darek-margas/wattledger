@@ -257,7 +257,10 @@ wattledger:
 - Each status reports energy since local midnight (`v1`, `v3`), average power
   (`v2`, `v4`) and average voltage (`v6`) at the end of its 5 minutes; the
   last status of a day is reported at 23:59. Set the PVOutput system's status
-  interval to 5 minutes and the device's `timezone` to the system's.
+  interval to 5 minutes and the device's `timezone` to the system's. Every
+  time component on the device must use that `timezone:`; ESPHome has one
+  zone per device, and a `homeassistant` time without one starts in the
+  build machine's zone (UTC in the ESPHome add-on) until Home Assistant connects.
 - Uploading starts from the moment it's first enabled. **Replay** re-sends
   every complete day still in the journal, overwriting those days on
   PVOutput; live uploads keep priority.

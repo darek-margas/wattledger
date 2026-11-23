@@ -334,6 +334,19 @@ start time and add up overlapping intervals.
 ESPHome's time zone setting (POSIX TZ string, DST aware) defines the local
 day for daily sealing and PVOutput date/time fields.
 
+ESPHome keeps one time zone per device, parsed at build time, and since
+2026 no longer sets libc's `TZ`. `localtime_r()` and `mktime()` on the
+device therefore see UTC. The component converts through ESPHome
+(`time::epoch_to_local_tm()` with the global zone) and works out local
+midnight itself, re-checking the UTC offset at midnight for daylight-saving
+changeover days. Host tests keep libc's conversion with `TZ` set.
+
+Every time component on the device sets that one zone. A `homeassistant`
+time without `timezone:` gets the build machine's zone (often UTC in a
+container) until Home Assistant connects and sends its own, so give every
+time component the same `timezone:`; otherwise a boot while Home Assistant
+is down runs on the wrong local day.
+
 ## 7. PVOutput uploader
 
 Enabled on the grid Vue only.

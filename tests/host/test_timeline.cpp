@@ -95,8 +95,33 @@ static void test_local_days_across_daylight_saving() {
   tzset();
 }
 
+// ESPHome on the device: TZ stays unset (libc sees UTC) and a converter
+// supplies local time. Here a fixed UTC+11 stands in for it.
+static bool fixed_plus_11(time_t t, struct tm *out) {
+  const time_t local = t + 11 * 3600;
+  return gmtime_r(&local, out) != nullptr;
+}
+
+static void test_converter_ignores_tz() {
+  setenv("TZ", "UTC0", 1);
+  tzset();
+  set_local_converter(fixed_plus_11);
+  // 2026-11-23 00:00 UTC is 11:00 local on the 23rd; local midnight was
+  // 2026-11-22 13:00 UTC.
+  const uint32_t utc_midnight = 1795392000;
+  LocalTime lt = local_time(utc_midnight);
+  EXPECT(lt.date == 20261123 && lt.minute == 11 * 60);
+  EXPECT(lt.day_start == utc_midnight - 11 * 3600);
+  EXPECT(next_local_midnight(lt.day_start) == lt.day_start + 86400);
+  // 10:59 local on the 23rd is still the 23rd, not the 22nd as UTC would say.
+  lt = local_time(utc_midnight - 60);
+  EXPECT(lt.date == 20261123 && lt.day_start == utc_midnight - 11 * 3600);
+  set_local_converter(nullptr);
+}
+
 int main() {
   test_local_days_across_daylight_saving();
+  test_converter_ignores_tz();
   test_anchor_resolution();
   test_aligned_interval_is_one_bucket();
   test_untimed_interval_splits_by_time();
