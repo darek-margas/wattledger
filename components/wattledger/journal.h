@@ -55,6 +55,12 @@ class Ring {
   uint32_t capacity() const { return this->capacity_; }
   uint32_t record_size() const { return this->record_size_; }
   uint32_t records_per_sector() const { return this->per_sector_; }
+  /// Records that may still be read: first_seq() to next_seq() - 1.
+  uint32_t held() const { return this->next_seq_ - this->first_seq(); }
+  /// Erases of the most-erased sector since the ring started at sequence 1.
+  /// A sector is erased when its first slot is written, so this follows
+  /// from the sequence number alone.
+  uint32_t erase_cycles() const;
 
   static uint32_t sectors_for(uint32_t records, uint32_t record_size);
 

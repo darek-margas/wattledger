@@ -53,6 +53,14 @@ class WattLedgerComponent : public PollingComponent {
   void add_tariff_period(uint16_t from_min, uint16_t to_min, float import_per_kwh, float export_per_kwh) {
     this->schedule_.add(from_min, to_min, import_per_kwh, export_per_kwh);
   }
+  /// Recorded time each ring holds, and wear of the most-erased journal sector.
+  void set_journal_sensors(sensor::Sensor *min1_history, sensor::Sensor *min5_history, sensor::Sensor *day_history,
+                           sensor::Sensor *flash_wear) {
+    this->min1_history_sensor_ = min1_history;
+    this->min5_history_sensor_ = min5_history;
+    this->day_history_sensor_ = day_history;
+    this->flash_wear_sensor_ = flash_wear;
+  }
   void set_cost_today_sensors(sensor::Sensor *cost, sensor::Sensor *credit) {
     this->cost_today_sensor_ = cost;
     this->credit_today_sensor_ = credit;
@@ -184,6 +192,13 @@ class WattLedgerComponent : public PollingComponent {
 
   /// Totals at the previous update(), for average output power.
   Totals published_;
+
+  // Journal sensors.
+  void publish_journal_sensors_();
+  sensor::Sensor *min1_history_sensor_{nullptr};
+  sensor::Sensor *min5_history_sensor_{nullptr};
+  sensor::Sensor *day_history_sensor_{nullptr};
+  sensor::Sensor *flash_wear_sensor_{nullptr};
 
   // Cost.
   sensor::Sensor *import_price_sensor_{nullptr};

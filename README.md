@@ -134,13 +134,28 @@ recorded against time since boot.
 | `time_id` | none | Time source for interval timestamps |
 | `min1_retention` | `48h` | 1-minute records kept |
 | `min5_retention` | `30d` | 5-minute records kept |
+| `day_retention` | `730d` | Sealed days kept |
 | `output_slots` | outputs + 4 | Room for outputs in each record |
+| `min1_history`, `min5_history`, `day_history` | none | Sensors: recorded time each ring holds (h, d, d) |
+| `flash_wear` | none | Sensor: erase cycles of the most-erased journal sector, % of 100,000 |
 
 The partition is sized from these and added automatically. Changing the
 record layout (adding, removing, reordering or renaming inputs or lines;
 `output_slots`) or the retention starts a new, empty journal, so leave spare
 output slots for outputs you may add later. Changing a lambda keeps the
 journal.
+
+The partition holds only the rings and is full from the first boot, so there
+is no "free space" to report. The history sensors show what matters instead:
+how far back the device can still replay after Home Assistant or PVOutput has
+been away. They count recorded time, so they grow to the retention and stay
+there; time the device was off doesn't count.
+
+`flash_wear` follows from the sequence numbers: a sector is erased when its
+first slot is written. The 1-minute ring is the busiest; with the defaults
+each of its sectors is erased about every two days, which is 0.001 % (one
+cycle) per two days. It counts from the start of the current journal, so a
+new journal resets it.
 
 ## History API
 
