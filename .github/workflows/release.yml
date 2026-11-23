@@ -1,0 +1,41 @@
+name: Release zip
+
+# Attaches wattledger.zip (the integration folder's contents) to each release.
+# HACS installs from this asset (hacs.json zip_release), so its download_count
+# is the install count: gh api repos/{owner}/{repo}/releases --jq '.[].assets[]'
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)attach the zip to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Check manifest version
+        run: |
+          version=$(jq -r .version custom_components/wattledger/manifest.json)
+          if [ "$version" != "${TAG#v}" ]; then
+            echo "::error::manifest.json says $version, release tag is $TAG"
+            exit 1
+          fi
+      - name: Build zip
+        run: |
+          cd custom_components/wattledger
+          zip -r -X "$GITHUB_WORKSPACE/wattledger.zip" . -x '__pycache__/*' '*.pyc'
+          unzip -l "$GITHUB_WORKSPACE/wattledger.zip"
+      - name: Upload
+        run: gh release upload "$TAG" wattledger.zip --clobber
