@@ -76,6 +76,12 @@ uint32_t Ring::first_seq() const {
   return sector_start > window ? sector_start - window : 1;
 }
 
+uint32_t Ring::erase_cycles() const {
+  const uint32_t written = this->next_seq_ - 1;
+  const uint32_t erases = (written + this->per_sector_ - 1) / this->per_sector_;
+  return (erases + this->sectors_ - 1) / this->sectors_;
+}
+
 bool Ring::scan() {
   uint8_t *rec = this->buffer_.data();
   // The sector holding the newest records has the largest first sequence number.

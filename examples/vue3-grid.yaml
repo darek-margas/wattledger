@@ -146,6 +146,15 @@ wattledger:
         name: "Consumption power"
       import_energy:
         name: "Consumption"
+  # How far back the journal reaches, and flash wear.
+  min1_history:
+    name: "Journal 1-minute history"
+  min5_history:
+    name: "Journal 5-minute history"
+  day_history:
+    name: "Journal day history"
+  flash_wear:
+    name: "Journal flash wear"
   # Cost of grid import and credit for export, from Home Assistant prices.
   cost:
     output: grid

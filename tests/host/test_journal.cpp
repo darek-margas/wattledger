@@ -209,10 +209,34 @@ static void test_event_round_trip() {
   EXPECT(out.a == 1 && out.b == 2);
 }
 
+static void test_held_and_erase_cycles() {
+  MemStorage st(3);
+  Ring ring;
+  ring.configure(&st, 0, 3, 1024, 7);  // 4 records per sector, capacity 12
+  std::vector<uint8_t> rec(1024);
+  EXPECT(ring.held() == 0);
+  EXPECT(ring.erase_cycles() == 0);
+  for (uint32_t i = 1; i <= 30; i++) {
+    ring.append(rec.data());
+    // The count from sequence numbers matches the erases the storage saw:
+    // the most-erased sector has ceil(erases / sectors).
+    EXPECT(ring.erase_cycles() == static_cast<uint32_t>((st.erases + 2) / 3));
+  }
+  EXPECT(st.erases == 8);
+  EXPECT(ring.erase_cycles() == 3);
+  // 21-30 readable (see test_append_read_wrap).
+  EXPECT(ring.held() == 10);
+  Ring again;
+  again.configure(&st, 0, 3, 1024, 7);
+  EXPECT(again.scan());
+  EXPECT(again.held() == 10 && again.erase_cycles() == 3);
+}
+
 int main() {
   test_crc32();
   test_append_read_wrap();
   test_scan_after_reboot();
+  test_held_and_erase_cycles();
   test_torn_write_is_skipped();
   test_other_salt_is_invalid();
   test_journal_layout_change();

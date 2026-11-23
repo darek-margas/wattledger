@@ -470,6 +470,7 @@ void WattLedgerComponent::update() {
       out.export_energy->publish_state(totals.output_export_wh[o] / 1000.0);
   }
   this->published_ = totals;
+  this->publish_journal_sensors_();
 
   const uint32_t unix_now = this->unix_now_();
   if ((this->cost_today_sensor_ != nullptr || this->credit_today_sensor_ != nullptr) && unix_now != 0 &&
@@ -699,6 +700,34 @@ bool WattLedgerComponent::read_min5(uint32_t seq, IntervalRecord &rec, uint32_t 
   this->layout_.decode(raw.data(), rec);
   start_unix = (rec.flags & FLAG_UNTIMED) ? this->anchors_.resolve(rec.boot_id, rec.start) : rec.start;
   return true;
+}
+
+// Publishes only changes: the values move once a minute at most.
+static void publish_if_changed(sensor::Sensor *sensor, float value) {
+  if (sensor != nullptr && (!sensor->has_state() || sensor->state != value))
+    sensor->publish_state(value);
+}
+
+void WattLedgerComponent::publish_journal_sensors_() {
+  if (!this->journal_ok_)
+    return;
+  float min1_h, min5_d, day_d, wear;
+  {
+    std::lock_guard<std::mutex> lock(this->journal_mutex_);
+    min1_h = this->journal_.min1().held() / 60.0f;
+    min5_d = this->journal_.min5().held() / 288.0f;
+    day_d = this->journal_.days().held();
+    uint32_t cycles = 0;
+    for (Ring *ring : {&this->journal_.events(), &this->journal_.min1(), &this->journal_.min5(),
+                       &this->journal_.days()})
+      cycles = std::max(cycles, ring->erase_cycles());
+    // Percent of the 100,000 erase cycles ESP32 flash chips are rated for.
+    wear = cycles / 1000.0f;
+  }
+  publish_if_changed(this->min1_history_sensor_, min1_h);
+  publish_if_changed(this->min5_history_sensor_, min5_d);
+  publish_if_changed(this->day_history_sensor_, day_d);
+  publish_if_changed(this->flash_wear_sensor_, wear);
 }
 
 void WattLedgerComponent::dump_config() {

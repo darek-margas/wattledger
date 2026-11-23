@@ -19,6 +19,7 @@ from esphome.const import (
     CONF_POWER,
     CONF_SENSOR,
     CONF_TIME_ID,
+    DEVICE_CLASS_DURATION,
     DEVICE_CLASS_ENERGY,
     DEVICE_CLASS_MONETARY,
     DEVICE_CLASS_POWER,
@@ -27,6 +28,7 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
     STATE_CLASS_TOTAL,
     STATE_CLASS_TOTAL_INCREASING,
+    UNIT_HOUR,
     UNIT_KILOWATT_HOURS,
     UNIT_PERCENT,
     UNIT_WATT,
@@ -65,6 +67,11 @@ CONF_REPLAY_PROGRESS = "replay_progress"
 CONF_LAST_ERROR = "last_error"
 CONF_REPLAY = "replay"
 CONF_DAY_RETENTION = "day_retention"
+CONF_MIN1_HISTORY = "min1_history"
+CONF_MIN5_HISTORY = "min5_history"
+CONF_DAY_HISTORY = "day_history"
+CONF_FLASH_WEAR = "flash_wear"
+UNIT_DAYS = "d"  # Not in esphome.const; HA's duration unit for days
 CONF_SEAL_DELAY = "seal_delay"
 CONF_COST = "cost"
 CONF_OUTPUT = "output"
@@ -339,6 +346,17 @@ COST_SCHEMA = cv.Schema(
 )
 
 
+def _history_schema(unit, decimals):
+    return sensor.sensor_schema(
+        unit_of_measurement=unit,
+        accuracy_decimals=decimals,
+        device_class=DEVICE_CLASS_DURATION,
+        state_class=STATE_CLASS_MEASUREMENT,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        icon="mdi:database-clock",
+    )
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
@@ -367,6 +385,21 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_DAY_RETENTION, default="730d"
             ): cv.positive_time_period_seconds,
+            # Recorded time each ring holds now; it grows to the retention
+            # and stays there.
+            cv.Optional(CONF_MIN1_HISTORY): _history_schema(UNIT_HOUR, 1),
+            cv.Optional(CONF_MIN5_HISTORY): _history_schema(UNIT_DAYS, 2),
+            cv.Optional(CONF_DAY_HISTORY): _history_schema(UNIT_DAYS, 0),
+            # Erase cycles of the most-erased journal sector, as a percent of
+            # the 100,000 the flash is rated for. Counts from the journal's
+            # start; a new journal (layout change) starts again from 0.
+            cv.Optional(CONF_FLASH_WEAR): sensor.sensor_schema(
+                unit_of_measurement=UNIT_PERCENT,
+                accuracy_decimals=3,
+                state_class=STATE_CLASS_MEASUREMENT,
+                entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+                icon="mdi:chip",
+            ),
             # A day is sealed this long after its local midnight.
             cv.Optional(
                 CONF_SEAL_DELAY, default="15min"
@@ -444,6 +477,15 @@ async def to_code(config):
 
     if pvo := config.get(CONF_PVOUTPUT):
         await _pvoutput_to_code(config, pvo, var)
+
+    journal_sensors = []
+    for key in (CONF_MIN1_HISTORY, CONF_MIN5_HISTORY, CONF_DAY_HISTORY, CONF_FLASH_WEAR):
+        if key in config:
+            journal_sensors.append(await sensor.new_sensor(config[key]))
+        else:
+            journal_sensors.append(cg.nullptr)
+    if any(s is not cg.nullptr for s in journal_sensors):
+        cg.add(var.set_journal_sensors(*journal_sensors))
 
     input_names = [item[CONF_ID] for item in config[CONF_INPUTS]]
     for item in config[CONF_INPUTS]:
