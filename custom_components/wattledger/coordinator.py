@@ -20,11 +20,12 @@ from homeassistant.components.recorder.statistics import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import slugify
 
-from .api import WattLedgerClient, WattLedgerError
+from .api import WattLedgerAuthError, WattLedgerClient, WattLedgerError
 from .const import DOMAIN, MAX_REQUESTS_PER_UPDATE, ROWS_PER_REQUEST, UPDATE_INTERVAL
 from .ledger import HOUR, Channel, HourlyLedger, channels
 
@@ -76,6 +77,8 @@ class WattLedgerCoordinator(DataUpdateCoordinator[LedgerStatus]):
     async def _async_update_data(self) -> LedgerStatus:
         try:
             info = await self.client.info()
+        except WattLedgerAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
         except WattLedgerError as err:
             raise UpdateFailed(str(err)) from err
         tier = info.get("tiers", {}).get("min1")
@@ -102,6 +105,8 @@ class WattLedgerCoordinator(DataUpdateCoordinator[LedgerStatus]):
 
         try:
             await self._read_rows(info, ledger)
+        except WattLedgerAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
         except WattLedgerError as err:
             raise UpdateFailed(str(err)) from err
         self._import(info, ledger.release())

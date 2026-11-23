@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT, Platform
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_PASSWORD,
+    CONF_PORT,
+    CONF_USERNAME,
+    Platform,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
@@ -19,7 +25,11 @@ type WattLedgerConfigEntry = ConfigEntry[WattLedgerCoordinator]
 
 async def async_setup_entry(hass: HomeAssistant, entry: WattLedgerConfigEntry) -> bool:
     client = WattLedgerClient(
-        async_get_clientsession(hass), entry.data[CONF_HOST], entry.data[CONF_PORT]
+        async_get_clientsession(hass),
+        entry.data[CONF_HOST],
+        entry.data[CONF_PORT],
+        entry.data.get(CONF_USERNAME),
+        entry.data.get(CONF_PASSWORD),
     )
     coordinator = WattLedgerCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()

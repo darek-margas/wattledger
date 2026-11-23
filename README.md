@@ -44,7 +44,9 @@ Install with HACS as a custom repository (category *Integration*), or copy
 Assistant 2026.3 or later.
 
 Add it under **Settings → Devices & services → Add integration → WattLedger**
-with the device's host name or IP address. It complements the ESPHome
+with the device's host name or IP address. The history API is served by
+ESPHome's `web_server`, so if that has `auth:` set, enter the same user name
+and password (digest or basic both work). It complements the ESPHome
 integration, which still provides the live sensors.
 
 - Every 5 minutes it reads new 1-minute records from the device and imports
