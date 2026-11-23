@@ -9,7 +9,7 @@ and uploads to [PVOutput](https://pvoutput.org) directly when the internet is
 back. Home Assistant gets live values and can fill gaps from the device's
 history after downtime.
 
-**Status:** 1.0.0. Running on an Emporia Vue 3 since November 2026: journal,
+**Status:** 1.0.1. Running on an Emporia Vue 3 since November 2026: journal,
 PVOutput uploads and the RV-3028 RTC confirmed on the device, voltage
 calibration still rough. Not yet tested on hardware: Ethernet, the generator
 Vue, the Home Assistant integration's history import, and the week-long
