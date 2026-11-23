@@ -14,6 +14,10 @@
 #endif
 
 #include "sealing.h"
+#include "timeline.h"
+#ifdef USE_TIME_TIMEZONE
+#include "esphome/components/time/posix_tz.h"
+#endif
 
 namespace esphome::wattledger {
 
@@ -41,6 +45,13 @@ void WattLedgerComponent::add_output(const char *name, OutputFn fn, sensor::Sens
 }
 
 void WattLedgerComponent::setup() {
+#ifdef USE_TIME_TIMEZONE
+  // ESPHome keeps the timezone to itself (it no longer sets TZ for libc), so
+  // local days, sealing and PVOutput dates go through its conversion.
+  set_local_converter([](time_t unix_time, struct tm *out) {
+    return time::epoch_to_local_tm(unix_time, time::get_global_tz(), out);
+  });
+#endif
   this->accumulator_.configure(this->inputs_.size(), this->lines_.size(), this->output_fns_);
   this->input_w_.assign(this->inputs_.size(), NAN);
   this->input_seen_ms_.assign(this->inputs_.size(), 0);

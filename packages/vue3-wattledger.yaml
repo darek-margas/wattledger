@@ -30,6 +30,8 @@ api:
 time:
   # Without an RTC, a boot with no NTP server reachable records untimed
   # intervals until the first sync (design section 6.2).
+  # The device has one time zone, set by every time component: give any
+  # other time component (e.g. homeassistant) the same `timezone:`.
   - platform: sntp
     id: sntp_time
     timezone: ${timezone}

@@ -345,8 +345,9 @@ void PVOutputUploader::dump_config() {
   ESP_LOGCONFIG(TAG, "  System ID: %s", this->system_id_.c_str());
   ESP_LOGCONFIG(TAG, "  Donor: %s", YESNO(this->donor_));
   ESP_LOGCONFIG(TAG, "  Live position: record %" PRIu32, this->live_.cursor);
-  if (this->replay_.active)
+  if (this->replay_.active) {
     ESP_LOGCONFIG(TAG, "  Replay position: record %" PRIu32 " of %" PRIu32, this->replay_.cursor, this->replay_.end);
+  }
 }
 
 }  // namespace esphome::wattledger
