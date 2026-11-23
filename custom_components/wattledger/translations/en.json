@@ -6,20 +6,34 @@
         "description": "The ESPHome device running the wattledger component. Its energy history is imported into statistics for the Energy dashboard.",
         "data": {
           "host": "Host",
-          "port": "Port"
+          "port": "Port",
+          "username": "User name",
+          "password": "Password"
         },
         "data_description": {
           "host": "Host name or IP address of the device, e.g. vue-grid.local.",
-          "port": "Port of the device's web server; 80 unless you changed it."
+          "port": "Port of the device's web server; 80 unless you changed it.",
+          "username": "The web_server auth user name, if the device has one. Leave empty otherwise.",
+          "password": "The web_server auth password."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Log in to the WattLedger device",
+        "description": "The web server on {host} refused the stored login. Enter the web_server auth user name and password from the device's config.",
+        "data": {
+          "username": "User name",
+          "password": "Password"
         }
       }
     },
     "error": {
       "cannot_connect": "Can't reach the WattLedger history API on this device. Check the address and that the firmware includes the wattledger component.",
-      "no_journal": "The device answers, but its journal isn't available. Check its log for partition errors."
+      "no_journal": "The device answers, but its journal isn't available. Check its log for partition errors.",
+      "invalid_auth": "The device's web server wants a login, or refused this one. Enter the web_server auth user name and password from the device's config."
     },
     "abort": {
-      "already_configured": "This device is already added; its address has been updated."
+      "already_configured": "This device is already added; its address has been updated.",
+      "reauth_successful": "The login works again."
     }
   },
   "entity": {
