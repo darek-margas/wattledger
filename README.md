@@ -115,7 +115,9 @@ wattledger:
   fitting and testing the RTC, step by step with annotated photos.
 - Wired Ethernet works with `packages/vue3-ethernet.yaml` (RTL8201, MDC
   GPIO32, MDIO GPIO33, clock in on GPIO0). Wi-Fi stays configured as the
-  fallback.
+  fallback. With ESPHome 2026.11.0 and no cable plugged in, leave it out:
+  that release's Ethernet retries wipe the DNS servers, so PVOutput uploads
+  fail (fixed upstream in esphome#22800).
   Without an RTC, a boot with no NTP server reachable records untimed
   intervals until the first sync; data is only lost if power fails again
   before that.
