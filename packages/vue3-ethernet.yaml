@@ -8,6 +8,13 @@
 # GPIO32, MDIO on GPIO33 and the 50 MHz reference clock coming in on GPIO0.
 # The same settings are in the emporia-vue-local base config and in a working
 # Vue 3 setup on the Home Assistant forum.
+#
+# Needs ESPHome newer than 2026.11.0 if the cable may be unplugged. 2026.11.0
+# retries Ethernet every 15 s without a link ("Connecting failed;
+# reconnecting"), and each retry restarts DHCP, which empties lwIP's DNS
+# servers for Wi-Fi too (esphome#22800, espressif/esp-idf#19082). Uploads
+# then fail with "couldn't get hostname". On 2026.11.0 without a cable, leave
+# this package out and use the driver's vue3-gpios.yaml for the LEDs.
 
 network:
   priority:
