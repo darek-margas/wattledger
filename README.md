@@ -39,9 +39,16 @@ Planned: monthly rollups and combined devices in the integration.
 
 ## Home Assistant integration
 
-Install with HACS as a custom repository (category *Integration*), or copy
-`custom_components/wattledger` into your configuration. Requires Home
-Assistant 2026.3 or later.
+Requires Home Assistant 2026.3 or later. WattLedger is in the HACS default
+list: search for **WattLedger** in HACS, download it and restart Home
+Assistant, or open it directly with
+[this My Home Assistant link](https://my.home-assistant.io/redirect/hacs_repository/?owner=darek-margas&repository=wattledger&category=integration).
+
+Without HACS, copy `custom_components/wattledger` from the
+[latest release](https://github.com/darek-margas/wattledger/releases/latest)
+(`wattledger.zip`) into your configuration. If your HACS doesn't list it yet,
+add `https://github.com/darek-margas/wattledger` as a custom repository
+(category *Integration*).
 
 Add it under **Settings → Devices & services → Add integration → WattLedger**
 with the device's host name or IP address. The history API is served by
